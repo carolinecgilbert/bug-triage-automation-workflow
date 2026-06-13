@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import TypeVar
 
@@ -119,11 +120,14 @@ class OpenAITriageLLM(BaseTriageLLM):
             ],
         )
 
+        raw_output = response.output_text
+        json_text = extract_json_object(raw_output)
+
         try:
-            parsed = json.loads(response.output_text)
+            parsed = json.loads(json_text)
         except json.JSONDecodeError as exc:
             raise ValueError(
-                f"OpenAI response for {prompt_name} was not valid JSON: {response.output_text}"
+                f"OpenAI response for {prompt_name} was not valid JSON: {raw_output}"
             ) from exc
 
         try:
@@ -138,6 +142,22 @@ def load_prompt(prompt_name: str) -> str:
     """Load a prompt markdown file by name."""
     prompt_path = PROMPTS_DIR / prompt_name
     return prompt_path.read_text(encoding="utf-8")
+
+
+def extract_json_object(raw_output: str) -> str:
+    """Extract a JSON object from plain or Markdown-fenced model output."""
+    text = raw_output.strip()
+
+    fenced_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fenced_match:
+        return fenced_match.group(1).strip()
+
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return text[start : end + 1]
+
+    return text
 
 
 def create_openai_triage_llm() -> OpenAITriageLLM:

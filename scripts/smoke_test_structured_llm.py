@@ -14,7 +14,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from llm.mock_client import MockTriageLLM
 from llm.schemas import TriageContext
 from llm.triage_service import TriageService
 
@@ -37,7 +36,7 @@ def main() -> None:
         ],
     )
 
-    service = TriageService(llm_client=MockTriageLLM())
+    service = TriageService()
 
     classification = service.classify_issue(context)
     owner = service.recommend_owner(context, classification)

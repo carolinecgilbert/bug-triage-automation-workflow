@@ -20,7 +20,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
 
-from llm.mock_client import MockTriageLLM
 from llm.schemas import TriageContext
 from llm.triage_service import TriageService
 from rag.retriever import make_preview, retrieve_chunks
@@ -51,7 +50,7 @@ def main() -> None:
         retrieved_context=[str(chunk["text"]) for chunk in retrieved_chunks],
     )
 
-    service = TriageService(llm_client=MockTriageLLM())
+    service = TriageService()
     classification = service.classify_issue(context)
     owner = service.recommend_owner(context, classification)
     rca = service.generate_rca(context, classification, owner)
@@ -90,4 +89,3 @@ def extract_markdown_title(markdown_text: str) -> str:
 
 if __name__ == "__main__":
     main()
-

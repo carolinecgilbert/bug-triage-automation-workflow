@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 
+from dotenv import load_dotenv
+
 from llm.base_client import BaseTriageLLM
 from llm.mock_client import MockTriageLLM
 
@@ -15,6 +17,8 @@ def create_triage_llm() -> BaseTriageLLM:
     spending tokens. The OpenAI implementation is imported lazily so local-only
     development stays lightweight.
     """
+    load_dotenv()
+
     provider = os.getenv("LLM_PROVIDER", "mock").strip().lower()
 
     if provider == "mock":
