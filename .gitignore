@@ -8,3 +8,6 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Local vector store
+chroma_db/
+*_chroma_db/
