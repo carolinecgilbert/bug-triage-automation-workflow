@@ -4,7 +4,7 @@
 
 `bug-triage-automation-workflow` is an Agentic Engineering Operations Assistant. The end-state system will analyze GitHub issues, retrieve relevant repository and operational context, recommend ownership, generate root cause hypotheses, suggest remediation steps, and require human approval before taking action.
 
-Step 3 focuses on the data and retrieval foundation for that future workflow.
+The current implementation reaches Step 5: the data foundation, RAG ingestion/retrieval, and structured LLM calls are in place.
 
 ## Current MVP Architecture
 
@@ -25,8 +25,12 @@ rag.retriever
   embed query -> nearest-neighbor search -> relevant context
         |
         v
-llm client
-  mock reasoning now, OpenAI reasoning later
+llm.TriageService
+  classify -> recommend owner -> generate RCA -> draft comment
+        |
+        v
+BaseTriageLLM implementation
+  MockTriageLLM now, OpenAITriageLLM later
 ```
 
 ## Main Runtime Paths
@@ -51,15 +55,24 @@ python -m rag.retriever "firmware update hash mismatch on hw-b2"
 
 This embeds the query using the same embedding provider, searches Chroma, and prints the top matching chunks.
 
-### Mock Reasoning Path
+### Structured Reasoning Path
 
 Run:
 
 ```bash
-python -m llm.mock_demo "Users are logged out after dashboard refresh"
+python scripts/smoke_test_structured_llm.py
 ```
 
-This proves that future workflow code can call an LLM-like interface and receive a structured triage response without spending tokens.
+This runs the four structured triage calls with `MockTriageLLM`:
+
+```text
+classify_issue
+  -> recommend_owner
+  -> generate_rca
+  -> draft_comment
+```
+
+Each step returns a Pydantic model, which is the shape future LangGraph nodes will pass through graph state.
 
 ## Separation Of Concerns
 
@@ -67,7 +80,9 @@ This proves that future workflow code can call an LLM-like interface and receive
 
 `rag/` owns retrieval infrastructure. It does not decide final triage answers; it prepares context.
 
-`llm/` owns reasoning clients. It receives issue text and retrieved context, then returns structured triage output.
+`llm/` owns structured reasoning. It defines schemas, a service layer, a base client interface, and provider implementations.
+
+`prompts/` owns hosted LLM task instructions for classification, owner recommendation, RCA generation, and comment drafting.
 
 `docs/` explains how the system works and how to discuss the architecture.
 
@@ -75,3 +90,4 @@ This proves that future workflow code can call an LLM-like interface and receive
 
 The system separates retrieval from reasoning. Retrieval finds relevant evidence. The LLM uses that evidence to form recommendations. This mirrors production RAG systems, where the LLM does not permanently know private company context; the application fetches that context at runtime and injects it into the prompt.
 
+The system also separates orchestration from model calls. `TriageService` exposes clean methods that LangGraph can call later without caring whether the backing model is a mock client or OpenAI.

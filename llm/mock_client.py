@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from llm.base_client import BaseTriageLLM, TriageContext, TriageResponse
+from llm.base_client import BaseTriageLLM
+from llm.schemas import (
+    ClassificationOutput,
+    DraftCommentOutput,
+    OwnerRecommendationOutput,
+    RCAOutput,
+    TriageContext,
+)
 
 
 class MockTriageLLM(BaseTriageLLM):
@@ -12,47 +19,171 @@ class MockTriageLLM(BaseTriageLLM):
     def provider_name(self) -> str:
         return "mock"
 
-    def generate_triage_response(
+    def classify_issue(self, context: TriageContext) -> ClassificationOutput:
+        """Classify using deterministic keyword rules."""
+        combined_text = context_to_text(context)
+        component, owner_team, confidence = infer_component_owner_and_confidence(combined_text)
+
+        severity = "sev3"
+        if any(keyword in combined_text for keyword in ["sev1", "outage", "all users", "data loss"]):
+            severity = "sev1"
+        elif any(keyword in combined_text for keyword in ["sev2", "production", "rollout", "many users"]):
+            severity = "sev2"
+
+        issue_type = "bug" if component != "unknown" else "unknown"
+        return ClassificationOutput(
+            issue_type=issue_type,
+            component=component,
+            severity=severity,
+            confidence=confidence,
+            reasoning_summary=(
+                f"Matched issue language to {component} using deterministic MVP keyword rules."
+                if component != "unknown"
+                else "No strong component keywords were found, so classification confidence is low."
+            ),
+        )
+
+    def recommend_owner(
         self,
-        issue_text: str,
-        retrieved_context: TriageContext,
-    ) -> TriageResponse:
-        """Generate a predictable response shaped like a future LLM result."""
-        combined_text = " ".join(
-            [issue_text, *[item.get("text", "") for item in retrieved_context]]
-        ).lower()
+        context: TriageContext,
+        classification: ClassificationOutput,
+    ) -> OwnerRecommendationOutput:
+        """Recommend an owner using the classified component."""
+        owner = OWNER_BY_COMPONENT.get(classification.component, "needs-human-triage")
+        evidence = [
+            f"Classified component: {classification.component}",
+            classification.reasoning_summary,
+        ]
+        if context.retrieved_context:
+            evidence.append(f"Retrieved context snippets available: {len(context.retrieved_context)}")
 
-        component, owner_team = infer_component_and_owner(combined_text)
+        return OwnerRecommendationOutput(
+            recommended_owner=owner,
+            confidence=classification.confidence,
+            supporting_evidence=evidence,
+        )
 
-        return {
-            "provider": self.provider_name,
-            "component": component,
-            "recommended_owner": owner_team,
-            "confidence": "medium",
-            "root_cause_hypotheses": [
-                f"Likely related to the {component} component based on issue terms and retrieved context.",
-                "Compare the new report against similar historical issues before assigning final severity.",
+    def generate_rca(
+        self,
+        context: TriageContext,
+        classification: ClassificationOutput,
+        owner: OwnerRecommendationOutput,
+    ) -> RCAOutput:
+        """Generate a deterministic RCA-style hypothesis for local testing."""
+        component = classification.component
+        hypothesis = RCA_BY_COMPONENT.get(
+            component,
+            "The issue needs more evidence before a credible root-cause hypothesis can be formed.",
+        )
+
+        risk_level = "medium" if classification.severity == "sev2" else "low"
+        if classification.severity == "sev1":
+            risk_level = "high"
+
+        return RCAOutput(
+            root_cause_hypothesis=hypothesis,
+            suggested_next_steps=[
+                "Review the top retrieved context and compare against similar historical issues.",
+                "Collect affected version, environment, reproduction steps, and relevant logs.",
+                f"Route to {owner.recommended_owner} for human review before taking action.",
             ],
-            "recommended_next_steps": [
-                "Review the top retrieved troubleshooting document and matching historical issue.",
-                "Attach relevant logs, affected version, environment, and reproduction details.",
-                f"Route to {owner_team} for human approval before remediation work starts.",
-            ],
-            "human_approval_required": True,
-        }
+            risk_level=risk_level,
+            confidence=round(max(classification.confidence - 0.05, 0.0), 2),
+        )
+
+    def draft_comment(
+        self,
+        context: TriageContext,
+        classification: ClassificationOutput,
+        owner: OwnerRecommendationOutput,
+        rca: RCAOutput,
+    ) -> DraftCommentOutput:
+        """Draft a concise human-reviewable GitHub issue comment."""
+        comment = (
+            "### Automated triage draft\n\n"
+            f"- Component: `{classification.component}`\n"
+            f"- Severity: `{classification.severity}`\n"
+            f"- Recommended owner: `{owner.recommended_owner}`\n"
+            f"- Confidence: `{classification.confidence:.2f}`\n\n"
+            f"Root-cause hypothesis: {rca.root_cause_hypothesis}\n\n"
+            "Suggested next steps:\n"
+            + "\n".join(f"- {step}" for step in rca.suggested_next_steps)
+            + "\n\nHuman approval is required before applying labels, assignments, or remediation."
+        )
+
+        return DraftCommentOutput(
+            comment=comment,
+            approval_required=True,
+            tone="professional",
+        )
 
 
 def infer_component_and_owner(text: str) -> tuple[str, str]:
     """Small keyword router used only by the mock LLM."""
-    if any(keyword in text for keyword in ["firmware", "ota", "manifest", "hash"]):
-        return "firmware_update", "firmware-update-team"
-    if any(keyword in text for keyword in ["auth", "login", "session", "oauth", "token"]):
-        return "auth", "platform-team"
-    if any(keyword in text for keyword in ["bluetooth", "ble", "pairing", "gatt"]):
-        return "bluetooth", "device-connectivity-team"
-    if any(keyword in text for keyword in ["dns", "network", "tls", "proxy"]):
-        return "networking", "networking-team"
-    if any(keyword in text for keyword in ["release", "pipeline", "deployment"]):
-        return "release_pipeline", "build-systems-team"
+    component, owner, _confidence = infer_component_owner_and_confidence(text)
+    return component, owner
 
-    return "unknown", "needs-human-triage"
+
+def infer_component_owner_and_confidence(text: str) -> tuple[str, str, float]:
+    """Map issue text to a component, owner, and confidence score."""
+    normalized = text.lower()
+    for component, keywords in KEYWORDS_BY_COMPONENT.items():
+        if any(keyword in normalized for keyword in keywords):
+            return component, OWNER_BY_COMPONENT[component], 0.85
+    return "unknown", "needs-human-triage", 0.35
+
+
+def context_to_text(context: TriageContext) -> str:
+    """Flatten context fields for deterministic keyword matching."""
+    parts = [
+        context.issue_title,
+        context.issue_body,
+        *context.issue_comments,
+        *context.labels,
+        *context.retrieved_context,
+        *context.logs,
+        context.repo_name or "",
+    ]
+    return " ".join(parts).lower()
+
+
+OWNER_BY_COMPONENT = {
+    "firmware_update": "firmware-update-team",
+    "auth": "platform-team",
+    "bluetooth": "device-connectivity-team",
+    "networking": "networking-team",
+    "release_pipeline": "build-systems-team",
+}
+
+
+KEYWORDS_BY_COMPONENT = {
+    "firmware_update": ["firmware", "ota", "manifest", "hash mismatch", "hash"],
+    "auth": ["auth", "login", "redirect", "token", "session", "oauth"],
+    "bluetooth": ["bluetooth", "pairing", "ble", "gatt"],
+    "networking": ["dns", "network", "wifi", "tls", "proxy"],
+    "release_pipeline": ["release", "build", "artifact", "ci", "pipeline"],
+}
+
+
+RCA_BY_COMPONENT = {
+    "firmware_update": (
+        "The update package or manifest likely has an integrity mismatch, stale artifact, "
+        "or hardware-specific rollout metadata issue."
+    ),
+    "auth": (
+        "The authentication failure likely involves session validation, token refresh, "
+        "redirect handling, or inconsistent signing configuration."
+    ),
+    "bluetooth": (
+        "The pairing failure likely involves stale bonding state, BLE advertising metadata, "
+        "or GATT discovery timing."
+    ),
+    "networking": (
+        "The connectivity failure likely involves DNS resolution, retry policy, TLS, "
+        "or network environment handling."
+    ),
+    "release_pipeline": (
+        "The release issue likely involves missing artifact metadata, build configuration, "
+        "or promotion pipeline validation."
+    ),
+}

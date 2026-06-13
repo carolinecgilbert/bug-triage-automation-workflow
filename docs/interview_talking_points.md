@@ -8,7 +8,7 @@ This project is an Agentic Engineering Operations Assistant that uses RAG to ret
 
 The current system has a local RAG pipeline. It ingests engineering knowledge from Markdown, JSON, and log files, chunks the text, embeds each chunk, stores the chunks in Chroma, and retrieves relevant context for a new issue query.
 
-The reasoning layer is abstracted behind `BaseTriageLLM`. During MVP development, it uses a mock client to avoid token spend. Later, the same interface can call OpenAI or another LLM provider.
+The reasoning layer is abstracted behind `BaseTriageLLM` and exposed through `TriageService`. During MVP development, it uses a mock client to avoid token spend. Later, the same interface can call OpenAI or another LLM provider. The four structured reasoning steps are classification, owner recommendation, RCA generation, and draft comment creation.
 
 ## How To Explain RAG In This Project
 
@@ -23,6 +23,18 @@ Each chunk stores metadata such as source file, filename, document type, and chu
 The mock LLM allows the workflow to be developed and tested without calling a paid API. This is a common engineering pattern: stabilize interfaces and data flow before adding expensive or nondeterministic external services.
 
 The mock client and OpenAI client inherit from the same abstract base class, which keeps the application code provider-agnostic.
+
+## Why Structured Outputs Matter
+
+The project uses Pydantic models for LLM inputs and outputs. This makes the system more production-like because each step returns a predictable object instead of a free-form paragraph.
+
+Structured outputs make it easier to:
+
+- test behavior
+- store results in a database later
+- pass state through LangGraph
+- evaluate quality
+- show human reviewers consistent fields
 
 ## Why The MVP Uses Hash Embeddings
 
@@ -50,6 +62,7 @@ A production version would likely add:
 - incremental vector indexing
 - real semantic embeddings
 - real LLM reasoning with structured output validation
+- LangGraph orchestration over the existing structured service calls
 - human approval workflow
 - GitHub comment, label, and assignment actions
 - observability and audit logs
@@ -60,6 +73,12 @@ Good way to explain the design:
 
 ```text
 I separated retrieval from reasoning. The RAG layer is responsible for finding grounded evidence from internal sources, while the LLM layer is responsible for turning the issue and retrieved evidence into a structured triage recommendation. Both embedding and LLM providers are abstracted so the MVP can run locally and cheaply, while production can swap in stronger hosted models.
+```
+
+Another strong framing:
+
+```text
+Before adding LangGraph, I created stable typed functions for each reasoning step. That gives the graph clean nodes to orchestrate: classify, route ownership, generate RCA, and draft a comment. The graph will coordinate the workflow, but the business logic already lives behind testable service methods.
 ```
 
 ## Tradeoffs To Name Clearly
@@ -89,4 +108,3 @@ Being able to name these tradeoffs is a strength. It shows you understand both t
 - human-in-the-loop: requiring human approval before action
 - incremental ingestion: updating only changed documents in the vector store
 - structured output: predictable machine-readable LLM response
-

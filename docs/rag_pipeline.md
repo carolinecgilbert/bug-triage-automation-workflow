@@ -4,7 +4,7 @@
 
 RAG stands for Retrieval-Augmented Generation.
 
-In this project, retrieval is the part that finds relevant engineering context before an LLM produces a triage recommendation. The future LLM should not guess from the issue alone. It should reason over the issue plus retrieved docs, logs, historical incidents, ownership metadata, and code summaries.
+In this project, retrieval is the part that finds relevant engineering context before the structured LLM layer produces a triage recommendation. The LLM should not guess from the issue alone. It should reason over the issue plus retrieved docs, logs, historical incidents, ownership metadata, and code summaries.
 
 ## Step 1: Source Documents
 
@@ -108,18 +108,27 @@ The retriever prints:
 
 This is the evidence that a future triage agent would pass into the LLM reasoning layer.
 
-## Step 7: Reasoning
+## Step 7: Structured Reasoning
 
-The current project does not yet run a real triage agent. It includes `llm.MockTriageLLM` as a token-free reasoning stand-in.
+The project now has a structured reasoning layer. `llm.TriageService` calls a `BaseTriageLLM` implementation through four explicit operations:
 
-The expected future flow is:
+- `classify_issue`
+- `recommend_owner`
+- `generate_rca`
+- `draft_comment`
+
+Each operation returns a Pydantic model from `llm.schemas`.
+
+The current local flow is:
 
 ```text
-GitHub issue text
-  -> retrieve relevant chunks
-  -> pass issue + context to LLM
-  -> return structured triage recommendation
+TriageContext
+  -> ClassificationOutput
+  -> OwnerRecommendationOutput
+  -> RCAOutput
+  -> DraftCommentOutput
 ```
 
-The mock client gives the workflow a stable output shape before real LLM calls are introduced.
+`MockTriageLLM` provides deterministic keyword-based results with no token spend. `OpenAITriageLLM` is wired to use prompt files and validate JSON responses into the same schemas when real model calls are enabled later.
 
+In Step 6, LangGraph will orchestrate these operations as nodes.
