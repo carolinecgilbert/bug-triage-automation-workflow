@@ -106,12 +106,25 @@ or another hosted/internal LLM provider.
 
 The key engineering choice is that both clients inherit from `BaseTriageLLM`, so the workflow can switch providers without changing orchestration code.
 
+## Structured Outputs In MVP vs Production
+
+The MVP uses Pydantic schemas for:
+
+- classification
+- owner recommendation
+- root-cause hypothesis
+- draft comment
+
+This is production-minded even though the mock behavior is simple. Structured outputs make the system easier to test, persist, evaluate, and route through a graph.
+
+In production, the OpenAI client or another hosted client should still return these same schemas. The model can be smarter, but the contract should remain stable.
+
 ## Human-In-The-Loop Design
 
-The current mock response includes:
+The current draft comment output includes:
 
 ```json
-"human_approval_required": true
+"approval_required": true
 ```
 
 This is important. For engineering operations, the agent should not blindly label, assign, close, or remediate issues without approval.
@@ -143,4 +156,3 @@ Useful signals:
 - final GitHub action
 
 These are the signals an AI FDE would use to debug quality and reliability.
-

@@ -100,7 +100,56 @@ common contract for mock and real reasoning clients
 
 Why it matters:
 
-The workflow can depend on the interface instead of a specific provider. This makes it easy to use a mock client during development and switch to OpenAI later.
+The workflow can depend on the interface instead of a specific provider. This makes it easy to use a mock client during development and switch to OpenAI later. It exposes the four structured operations: classify, recommend owner, generate RCA, and draft comment.
+
+## `llm/schemas.py`
+
+Defines Pydantic models for structured triage input and output.
+
+Important models:
+
+- `TriageContext`
+- `ClassificationOutput`
+- `OwnerRecommendationOutput`
+- `RCAOutput`
+- `DraftCommentOutput`
+
+Role in the stack:
+
+```text
+raw issue data -> typed workflow state
+```
+
+Why it matters:
+
+Typed schemas make LLM output explicit and testable. They also give future LangGraph nodes a clear state shape.
+
+## `llm/triage_service.py`
+
+Provides the application-facing structured triage service.
+
+Main class:
+
+```python
+TriageService
+```
+
+Methods:
+
+- `classify_issue()`
+- `recommend_owner()`
+- `generate_rca()`
+- `draft_comment()`
+
+Role in the stack:
+
+```text
+future graph node -> service method -> configured LLM client
+```
+
+Why it matters:
+
+This service is the bridge between orchestration code and model-provider code. LangGraph can call these methods without knowing whether the implementation is mock or OpenAI.
 
 ## `llm/mock_client.py`
 
@@ -109,7 +158,7 @@ Provides deterministic triage output with no API call.
 Role in the stack:
 
 ```text
-issue + retrieved context -> fake structured triage response
+TriageContext -> deterministic structured triage outputs
 ```
 
 Why it matters:
@@ -123,12 +172,61 @@ Provides an optional hosted LLM implementation.
 Role in the stack:
 
 ```text
-issue + retrieved context -> real LLM-generated triage response
+TriageContext + prompt file -> OpenAI JSON -> Pydantic model
 ```
 
 Why it matters:
 
 This is the production-style reasoning path. It should be introduced after retrieval, output contracts, and human approval flows are stable.
+
+## `prompts/`
+
+Contains task-specific instructions for hosted LLM calls.
+
+Prompt files:
+
+- `classify_issue.md`
+- `recommend_owner.md`
+- `generate_rca.md`
+- `draft_comment.md`
+
+Role in the stack:
+
+```text
+structured task instruction -> hosted LLM response requirements
+```
+
+Why it matters:
+
+Keeping prompts outside Python code makes them easier to inspect, revise, and eventually version.
+
+## `scripts/smoke_test_structured_llm.py`
+
+Manual smoke test for the structured LLM flow.
+
+Role in the stack:
+
+```text
+sample TriageContext -> all four service methods -> printed JSON
+```
+
+Why it matters:
+
+It gives a quick human-readable demo without needing pytest, OpenAI, LangGraph, or FastAPI.
+
+## `tests/test_structured_llm.py`
+
+Automated tests for Step 5 behavior.
+
+Role in the stack:
+
+```text
+expected issue examples -> assertions on typed outputs
+```
+
+Why it matters:
+
+The tests protect the structured contract while future orchestration code is added.
 
 ## `llm/factory.py`
 
@@ -165,4 +263,3 @@ EMBEDDING_PROVIDER=hash
 HASH_EMBEDDING_DIMENSIONS=384
 LLM_PROVIDER=mock
 ```
-

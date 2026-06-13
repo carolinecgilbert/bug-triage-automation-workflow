@@ -1,5 +1,19 @@
 """LLM clients for MVP and production triage reasoning."""
 
-from llm.base_client import BaseTriageLLM, TriageContext, TriageResponse
+from llm.base_client import BaseTriageLLM
+from llm.schemas import (
+    ClassificationOutput,
+    DraftCommentOutput,
+    OwnerRecommendationOutput,
+    RCAOutput,
+    TriageContext,
+)
 
-__all__ = ["BaseTriageLLM", "TriageContext", "TriageResponse"]
+__all__ = [
+    "BaseTriageLLM",
+    "ClassificationOutput",
+    "DraftCommentOutput",
+    "OwnerRecommendationOutput",
+    "RCAOutput",
+    "TriageContext",
+]

@@ -4,13 +4,25 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
+from typing import TypeVar
 
 from openai import OpenAI
+from pydantic import BaseModel, ValidationError
 
-from llm.base_client import BaseTriageLLM, TriageContext, TriageResponse
+from llm.base_client import BaseTriageLLM
+from llm.schemas import (
+    ClassificationOutput,
+    DraftCommentOutput,
+    OwnerRecommendationOutput,
+    RCAOutput,
+    TriageContext,
+)
 
 
 DEFAULT_OPENAI_CHAT_MODEL = "gpt-4.1-mini"
+PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
+SchemaModel = TypeVar("SchemaModel", bound=BaseModel)
 
 
 class OpenAITriageLLM(BaseTriageLLM):
@@ -24,35 +36,108 @@ class OpenAITriageLLM(BaseTriageLLM):
     def provider_name(self) -> str:
         return "openai"
 
-    def generate_triage_response(
-        self,
-        issue_text: str,
-        retrieved_context: TriageContext,
-    ) -> TriageResponse:
-        context_text = "\n\n".join(
-            f"Source: {item.get('source', 'unknown')}\n{item.get('text', '')}"
-            for item in retrieved_context
+    def classify_issue(self, context: TriageContext) -> ClassificationOutput:
+        """Classify an issue using the hosted model and validate JSON output."""
+        return self._request_structured_output(
+            prompt_name="classify_issue.md",
+            payload={"context": context.model_dump()},
+            output_model=ClassificationOutput,
         )
+
+    def recommend_owner(
+        self,
+        context: TriageContext,
+        classification: ClassificationOutput,
+    ) -> OwnerRecommendationOutput:
+        """Recommend owner using the hosted model and validate JSON output."""
+        return self._request_structured_output(
+            prompt_name="recommend_owner.md",
+            payload={
+                "context": context.model_dump(),
+                "classification": classification.model_dump(),
+            },
+            output_model=OwnerRecommendationOutput,
+        )
+
+    def generate_rca(
+        self,
+        context: TriageContext,
+        classification: ClassificationOutput,
+        owner: OwnerRecommendationOutput,
+    ) -> RCAOutput:
+        """Generate RCA hypothesis using the hosted model and validate JSON output."""
+        return self._request_structured_output(
+            prompt_name="generate_rca.md",
+            payload={
+                "context": context.model_dump(),
+                "classification": classification.model_dump(),
+                "owner": owner.model_dump(),
+            },
+            output_model=RCAOutput,
+        )
+
+    def draft_comment(
+        self,
+        context: TriageContext,
+        classification: ClassificationOutput,
+        owner: OwnerRecommendationOutput,
+        rca: RCAOutput,
+    ) -> DraftCommentOutput:
+        """Draft a GitHub comment using the hosted model and validate JSON output."""
+        return self._request_structured_output(
+            prompt_name="draft_comment.md",
+            payload={
+                "context": context.model_dump(),
+                "classification": classification.model_dump(),
+                "owner": owner.model_dump(),
+                "rca": rca.model_dump(),
+            },
+            output_model=DraftCommentOutput,
+        )
+
+    def _request_structured_output(
+        self,
+        prompt_name: str,
+        payload: dict[str, object],
+        output_model: type[SchemaModel],
+    ) -> SchemaModel:
+        """Call OpenAI and parse the response into the requested Pydantic model."""
+        prompt = load_prompt(prompt_name)
+        user_payload = json.dumps(payload, indent=2)
+
         response = self._client.responses.create(
             model=self.model_name,
             input=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are an engineering bug triage assistant. Return only JSON with keys: "
-                        "component, recommended_owner, confidence, root_cause_hypotheses, "
-                        "recommended_next_steps, human_approval_required."
-                    ),
+                    "content": prompt,
                 },
                 {
                     "role": "user",
-                    "content": f"Issue:\n{issue_text}\n\nRetrieved context:\n{context_text}",
+                    "content": f"Input JSON:\n{user_payload}",
                 },
             ],
         )
-        parsed = json.loads(response.output_text)
-        parsed["provider"] = self.provider_name
-        return parsed
+
+        try:
+            parsed = json.loads(response.output_text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"OpenAI response for {prompt_name} was not valid JSON: {response.output_text}"
+            ) from exc
+
+        try:
+            return output_model.model_validate(parsed)
+        except ValidationError as exc:
+            raise ValueError(
+                f"OpenAI response for {prompt_name} did not match {output_model.__name__}: {parsed}"
+            ) from exc
+
+
+def load_prompt(prompt_name: str) -> str:
+    """Load a prompt markdown file by name."""
+    prompt_path = PROMPTS_DIR / prompt_name
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def create_openai_triage_llm() -> OpenAITriageLLM:
