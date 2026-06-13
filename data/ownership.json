@@ -1,0 +1,24 @@
+{
+  "components": {
+    "auth": {
+      "owner_team": "platform-team",
+      "description": "Authentication and session management services, including OAuth redirects, token refresh, account linking, identity provider integration, and authorization middleware."
+    },
+    "firmware_update": {
+      "owner_team": "firmware-update-team",
+      "description": "Over-the-air firmware update orchestration, manifest validation, binary download, hash verification, staged rollout controls, and device update state tracking."
+    },
+    "bluetooth": {
+      "owner_team": "device-connectivity-team",
+      "description": "Bluetooth discovery, pairing, reconnection, device capability exchange, connection health monitoring, and mobile-to-device transport behavior."
+    },
+    "networking": {
+      "owner_team": "networking-team",
+      "description": "Network client behavior, DNS resolution, retry policy, TLS handshakes, connectivity diagnostics, proxy handling, and API gateway communication."
+    },
+    "release_pipeline": {
+      "owner_team": "build-systems-team",
+      "description": "Build, packaging, release manifest generation, artifact publishing, version promotion, CI/CD automation, and production deployment gates."
+    }
+  }
+}
