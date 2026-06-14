@@ -21,7 +21,7 @@ class MockTriageLLM(BaseTriageLLM):
 
     def classify_issue(self, context: TriageContext) -> ClassificationOutput:
         """Classify using deterministic keyword rules."""
-        combined_text = context_to_text(context)
+        combined_text = context_to_text(context, include_retrieved_context=False)
         component, owner_team, confidence = infer_component_owner_and_confidence(combined_text)
 
         severity = "sev3"
@@ -133,17 +133,18 @@ def infer_component_owner_and_confidence(text: str) -> tuple[str, str, float]:
     return "unknown", "needs-human-triage", 0.35
 
 
-def context_to_text(context: TriageContext) -> str:
+def context_to_text(context: TriageContext, include_retrieved_context: bool = True) -> str:
     """Flatten context fields for deterministic keyword matching."""
     parts = [
         context.issue_title,
         context.issue_body,
         *context.issue_comments,
         *context.labels,
-        *context.retrieved_context,
         *context.logs,
         context.repo_name or "",
     ]
+    if include_retrieved_context:
+        parts.extend(context.retrieved_context)
     return " ".join(parts).lower()
 
 

@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 from typing import TypeVar
+from dotenv import load_dotenv
 
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
@@ -24,6 +25,8 @@ from llm.schemas import (
 DEFAULT_OPENAI_CHAT_MODEL = "gpt-4.1-mini"
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 SchemaModel = TypeVar("SchemaModel", bound=BaseModel)
+
+load_dotenv()
 
 
 class OpenAITriageLLM(BaseTriageLLM):
