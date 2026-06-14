@@ -1,0 +1,302 @@
+# Running The App
+
+This runbook explains how to start the MVP locally, run the current workflow, and inspect persisted triage data.
+
+## What You Are Running
+
+The local system has two kinds of storage:
+
+```text
+Chroma
+  stores embedded RAG chunks for retrieval
+
+Postgres
+  stores triage runs, retrieved evidence, and human feedback
+```
+
+The runtime flow is:
+
+```text
+POST /triage
+  -> FastAPI validates the request
+  -> LangGraph runs the triage workflow
+  -> RAG retrieves context from Chroma
+  -> TriageService calls mock or OpenAI client
+  -> approval gate marks the run for review
+  -> SQLAlchemy stores the result in Postgres
+  -> API returns structured JSON
+```
+
+## Prerequisites
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Make sure `.env` has the local database URL:
+
+```env
+DATABASE_URL=postgresql+psycopg://bugtriage:bugtriage@localhost:5432/bugtriage
+```
+
+If you use the OpenAI provider, also set:
+
+```env
+OPENAI_API_KEY=your-key
+LLM_PROVIDER=openai
+```
+
+For normal local testing, keep:
+
+```env
+LLM_PROVIDER=mock
+EMBEDDING_PROVIDER=hash
+```
+
+## Start Postgres
+
+Start the local database:
+
+```bash
+docker compose up -d
+```
+
+Check status:
+
+```bash
+docker compose ps
+```
+
+If Docker reports that it cannot connect to the Docker API, Docker Desktop is not running. Open Docker Desktop, wait for it to finish starting, and retry the command.
+
+## Initialize Tables
+
+The API initializes tables on startup, but you can initialize them directly:
+
+```bash
+python -c "from src.db.database import init_db; init_db(); print('db ok')"
+```
+
+Expected output:
+
+```text
+db ok
+```
+
+## Build Or Refresh The RAG Index
+
+Run ingestion before testing retrieval-heavy flows:
+
+```bash
+python -m rag.ingest
+```
+
+This loads files under `data/`, chunks them, embeds the chunks, and writes them into Chroma.
+
+## Run Smoke Tests
+
+Structured LLM only:
+
+```bash
+python scripts/smoke_test_structured_llm.py --provider mock
+```
+
+RAG to LLM:
+
+```bash
+python scripts/smoke_test_rag_to_llm.py --provider mock
+```
+
+LangGraph:
+
+```bash
+python scripts/smoke_test_langgraph.py --provider mock
+```
+
+FastAPI in-process:
+
+```bash
+python scripts/smoke_test_fastapi.py --provider mock
+```
+
+Persistence:
+
+```bash
+python scripts/smoke_test_persistence.py --provider mock
+```
+
+The persistence smoke test exercises:
+
+```text
+POST /triage
+GET /triage/{run_id}
+POST /feedback
+```
+
+## Start The API Server
+
+Run:
+
+```bash
+uvicorn src.api.main:app --reload
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Run triage:
+
+```bash
+curl -X POST http://127.0.0.1:8000/triage \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticket_id": "BUG-LOCAL-001",
+    "title": "Firmware update fails with hash mismatch",
+    "description": "Devices download the OTA package but fail integrity validation before install.",
+    "provider": "mock",
+    "require_approval": true
+  }'
+```
+
+Copy the returned `run_id`.
+
+Fetch one stored run:
+
+```bash
+curl http://127.0.0.1:8000/triage/YOUR_RUN_ID_HERE
+```
+
+List recent runs:
+
+```bash
+curl http://127.0.0.1:8000/triage
+```
+
+Submit feedback:
+
+```bash
+curl -X POST http://127.0.0.1:8000/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "run_id": "YOUR_RUN_ID_HERE",
+    "approved": true,
+    "correct_owner": true,
+    "useful_rca": true,
+    "useful_comment": true,
+    "notes": "Looks accurate for firmware ownership."
+  }'
+```
+
+Fetch the same run again to confirm feedback was attached:
+
+```bash
+curl http://127.0.0.1:8000/triage/YOUR_RUN_ID_HERE
+```
+
+## Inspect Postgres
+
+Open `psql`:
+
+```bash
+docker compose exec postgres psql -U bugtriage -d bugtriage
+```
+
+List tables:
+
+```sql
+\dt
+```
+
+Inspect table schemas:
+
+```sql
+\d triage_runs
+\d retrieved_sources
+\d human_feedback
+```
+
+List recent triage runs:
+
+```sql
+SELECT id, run_id, ticket_id, provider, status, latency_ms, approval_required
+FROM triage_runs
+ORDER BY id DESC
+LIMIT 5;
+```
+
+Inspect retrieved RAG evidence:
+
+```sql
+SELECT id, run_id, doc_type, source, distance
+FROM retrieved_sources
+ORDER BY id DESC
+LIMIT 10;
+```
+
+Inspect human feedback:
+
+```sql
+SELECT id, run_id, approved, correct_owner, useful_rca, useful_comment, notes
+FROM human_feedback
+ORDER BY id DESC
+LIMIT 10;
+```
+
+Inspect final agent output JSON:
+
+```sql
+SELECT run_id, final_state_json
+FROM triage_runs
+ORDER BY id DESC
+LIMIT 1;
+```
+
+Exit `psql`:
+
+```sql
+\q
+```
+
+## Run Tests
+
+Run the focused test suite:
+
+```bash
+python -m pytest tests/test_api.py tests/test_structured_llm.py tests/test_langgraph_workflow.py
+```
+
+The API tests use a temporary SQLite database so they do not depend on Docker or mutate your local Postgres data.
+
+## Reset Local Data
+
+To stop containers while keeping the database volume:
+
+```bash
+docker compose down
+```
+
+To delete all local Postgres data and start fresh:
+
+```bash
+docker compose down -v
+docker compose up -d
+python -c "from src.db.database import init_db; init_db(); print('db ok')"
+```
+
+Use `docker compose down -v` carefully. It deletes the `postgres_data` volume and all persisted triage runs.
+
+## What To Look For
+
+After a successful run, you should see:
+
+- one new row in `triage_runs`
+- several rows in `retrieved_sources`
+- one row in `human_feedback` after calling `/feedback`
+- `final_state_json` containing classification, owner recommendation, RCA, draft comment, approval state, and retrieved context
+
+That proves the MVP can run the AI workflow and preserve an auditable record of what happened.

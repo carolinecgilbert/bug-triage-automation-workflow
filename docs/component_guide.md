@@ -269,7 +269,7 @@ workflow input + intermediate outputs -> final API-ready dict
 
 Why it matters:
 
-The state uses plain dictionary/list/string/bool fields so it can later be returned from FastAPI and stored in SQLite without special conversion.
+The state uses plain dictionary/list/string/bool fields so it can be returned from FastAPI and stored in Postgres JSON columns without special conversion.
 
 ## `agent/nodes.py`
 
@@ -357,11 +357,14 @@ Endpoints:
 
 - `GET /health`
 - `POST /triage`
+- `GET /triage`
+- `GET /triage/{run_id}`
+- `POST /feedback`
 
 Role in the stack:
 
 ```text
-HTTP request -> run_triage_workflow() -> structured JSON response
+HTTP request -> run_triage_workflow() -> persist result -> structured JSON response
 ```
 
 Why it matters:
@@ -376,6 +379,10 @@ Important models:
 
 - `TriageRequest`
 - `TriageResponse`
+- `TriageRunSummary`
+- `StoredTriageRunResponse`
+- `FeedbackRequest`
+- `FeedbackResponse`
 - `HealthResponse`
 
 Role in the stack:
@@ -402,6 +409,64 @@ Why it matters:
 
 Provider selection is explicit. `mock` remains the default for safe local testing, while `openai` is available for intentional integration testing.
 
+It also exposes the database session dependency used by FastAPI routes.
+
+## `src/db/database.py`
+
+Configures SQLAlchemy database access.
+
+Role in the stack:
+
+```text
+DATABASE_URL -> SQLAlchemy engine -> session per API request
+```
+
+Why it matters:
+
+The app defaults to local Docker Postgres but reads `DATABASE_URL`, so the same code can point at AWS RDS, GCP Cloud SQL, or temporary SQLite tests without rewriting the API layer. For the MVP, `init_db()` creates tables directly; production systems should use Alembic migrations.
+
+## `src/db/models.py`
+
+Defines the relational persistence schema.
+
+Tables:
+
+- `triage_runs`
+- `retrieved_sources`
+- `human_feedback`
+
+Role in the stack:
+
+```text
+workflow output + evidence + feedback -> durable database rows
+```
+
+Why it matters:
+
+The database becomes the system of record. It allows the project to keep an audit trail of what the agent saw, what it recommended, how long it took, and whether a human approved or corrected it.
+
+## `src/db/repository.py`
+
+Provides database helper functions.
+
+Important functions:
+
+- `create_triage_run()`
+- `get_triage_run()`
+- `list_triage_runs()`
+- `create_retrieved_sources()`
+- `create_feedback()`
+
+Role in the stack:
+
+```text
+API route -> repository function -> SQLAlchemy model
+```
+
+Why it matters:
+
+Repository helpers keep SQLAlchemy details out of the API routes. That makes the API easier to read and gives future UI or eval code a reusable persistence interface.
+
 ## `scripts/smoke_test_fastapi.py`
 
 Manual smoke test for the FastAPI layer.
@@ -423,6 +488,28 @@ python scripts/smoke_test_fastapi.py --provider mock
 python scripts/smoke_test_fastapi.py --provider openai
 ```
 
+## `scripts/smoke_test_persistence.py`
+
+Manual smoke test for stored triage runs and feedback.
+
+Role in the stack:
+
+```text
+TestClient -> /triage -> /triage/{run_id} -> /feedback -> printed JSON
+```
+
+Why it matters:
+
+It verifies that the HTTP layer, workflow layer, and database layer work together.
+
+Run with:
+
+```bash
+docker compose up -d
+python scripts/smoke_test_persistence.py --provider mock
+python scripts/smoke_test_persistence.py --provider openai
+```
+
 ## `tests/test_api.py`
 
 Automated tests for the FastAPI app.
@@ -436,6 +523,21 @@ TestClient request -> endpoint response assertions
 Why it matters:
 
 These tests verify `/health`, `/triage`, default provider behavior, and that the API returns the final triage state.
+They also verify that triage runs are persisted, listed, fetched by `run_id`, and can receive human feedback.
+
+## `docker-compose.yml`
+
+Defines local Postgres for development.
+
+Role in the stack:
+
+```text
+docker compose up -d -> local Postgres -> FastAPI persistence
+```
+
+Why it matters:
+
+Using Postgres locally makes the MVP closer to a deployable application than storing everything in memory. The application still reads `DATABASE_URL`, so moving to managed Postgres later should mainly be a configuration change.
 
 ## `.env` And `.env.example`
 
@@ -451,4 +553,5 @@ CHROMA_COLLECTION_NAME=bug_triage_rag
 EMBEDDING_PROVIDER=hash
 HASH_EMBEDDING_DIMENSIONS=384
 LLM_PROVIDER=mock
+DATABASE_URL=postgresql+psycopg://bugtriage:bugtriage@localhost:5432/bugtriage
 ```
