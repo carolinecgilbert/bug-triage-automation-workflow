@@ -2,7 +2,8 @@
 
 Run from the repository root:
 
-    python scripts/smoke_test_rag_to_llm.py
+    python scripts/smoke_test_rag_to_llm.py --provider mock
+    python scripts/smoke_test_rag_to_llm.py --provider openai
 
 If the Chroma collection does not exist yet, run:
 
@@ -11,6 +12,7 @@ If the Chroma collection does not exist yet, run:
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -20,6 +22,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
 
+from llm.mock_client import MockTriageLLM
+from llm.openai_client import create_openai_triage_llm
 from llm.schemas import TriageContext
 from llm.triage_service import TriageService
 from rag.retriever import make_preview, retrieve_chunks
@@ -29,6 +33,15 @@ SAMPLE_ISSUE_PATH = PROJECT_ROOT / "data" / "sample_issues" / "sample_issue_001.
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Smoke test RAG retrieval plus structured triage.")
+    parser.add_argument(
+        "--provider",
+        choices=["mock", "openai"],
+        default="mock",
+        help="LLM provider to use. Defaults to mock to avoid token spend.",
+    )
+    args = parser.parse_args()
+
     load_dotenv()
 
     issue_text = SAMPLE_ISSUE_PATH.read_text(encoding="utf-8")
@@ -50,12 +63,15 @@ def main() -> None:
         retrieved_context=[str(chunk["text"]) for chunk in retrieved_chunks],
     )
 
-    service = TriageService()
+    service = TriageService(llm_client=create_llm_client(args.provider))
     classification = service.classify_issue(context)
     owner = service.recommend_owner(context, classification)
     rca = service.generate_rca(context, classification, owner)
     comment = service.draft_comment(context, classification, owner, rca)
 
+    print("provider")
+    print(json.dumps(args.provider, indent=2))
+    print()
     print("retrieved_chunks")
     for index, chunk in enumerate(retrieved_chunks, start=1):
         metadata = chunk["metadata"]
@@ -77,6 +93,15 @@ def main() -> None:
     print()
     print("comment")
     print(json.dumps(comment.model_dump(), indent=2))
+
+
+def create_llm_client(provider: str):
+    """Create the requested LLM client for the smoke test."""
+    if provider == "mock":
+        return MockTriageLLM()
+    if provider == "openai":
+        return create_openai_triage_llm()
+    raise ValueError(f"Unsupported provider: {provider}")
 
 
 def extract_markdown_title(markdown_text: str) -> str:

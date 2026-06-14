@@ -214,6 +214,15 @@ Why it matters:
 
 It gives a quick human-readable demo without needing pytest, OpenAI, LangGraph, or FastAPI.
 
+Run with:
+
+```bash
+python scripts/smoke_test_structured_llm.py --provider mock
+python scripts/smoke_test_structured_llm.py --provider openai
+```
+
+`mock` is the default and does not spend tokens. `openai` is an explicit API integration test.
+
 ## `tests/test_structured_llm.py`
 
 Automated tests for Step 5 behavior.
@@ -247,6 +256,98 @@ environment config -> concrete LLM client
 Why it matters:
 
 Provider factories keep the rest of the application clean. Workflow code should not need to know how to instantiate OpenAI or mock clients.
+
+## `agent/state.py`
+
+Defines `TriageState`, the serializable state object passed between LangGraph nodes.
+
+Role in the stack:
+
+```text
+workflow input + intermediate outputs -> final API-ready dict
+```
+
+Why it matters:
+
+The state uses plain dictionary/list/string/bool fields so it can later be returned from FastAPI and stored in SQLite without special conversion.
+
+## `agent/nodes.py`
+
+Defines the plain Python node functions used by LangGraph.
+
+Important nodes:
+
+- `prepare_context_node`
+- `retrieve_context_node`
+- `classify_issue_node`
+- `recommend_owner_node`
+- `generate_rca_node`
+- `draft_comment_node`
+- `approval_gate_node`
+
+Role in the stack:
+
+```text
+TriageState -> one workflow step -> updated TriageState
+```
+
+Why it matters:
+
+Each node does one clear job. Retrieval failures are captured in `state["errors"]` so the workflow can still complete and route to human approval.
+
+## `agent/graph.py`
+
+Builds and runs the LangGraph workflow.
+
+Main functions:
+
+- `build_triage_graph()`
+- `run_triage_workflow()`
+
+Role in the stack:
+
+```text
+input issue dict -> compiled graph -> final triage state
+```
+
+Why it matters:
+
+This is the orchestration layer that Step 7 FastAPI can call directly. It keeps workflow order explicit while leaving business logic in `rag/` and `llm/`.
+
+## `scripts/smoke_test_langgraph.py`
+
+Manual smoke test for the graph workflow.
+
+Role in the stack:
+
+```text
+sample issue -> LangGraph workflow -> printed final state sections
+```
+
+Why it matters:
+
+It verifies the full controlled workflow from issue input through retrieval, structured triage, and approval gating.
+
+Run with:
+
+```bash
+python scripts/smoke_test_langgraph.py --provider mock
+python scripts/smoke_test_langgraph.py --provider openai
+```
+
+## `tests/test_langgraph_workflow.py`
+
+Automated tests for the LangGraph workflow.
+
+Role in the stack:
+
+```text
+issue examples -> graph invocation -> assertions on final state
+```
+
+Why it matters:
+
+These tests protect the orchestration layer and ensure it stays mock-only, local, and network-free.
 
 ## `.env` And `.env.example`
 

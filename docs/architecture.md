@@ -4,7 +4,7 @@
 
 `bug-triage-automation-workflow` is an Agentic Engineering Operations Assistant. The end-state system will analyze GitHub issues, retrieve relevant repository and operational context, recommend ownership, generate root cause hypotheses, suggest remediation steps, and require human approval before taking action.
 
-The current implementation reaches Step 5: the data foundation, RAG ingestion/retrieval, and structured LLM calls are in place.
+The current implementation reaches Step 6: the data foundation, RAG ingestion/retrieval, structured LLM calls, and LangGraph orchestration are in place.
 
 ## Current MVP Architecture
 
@@ -23,6 +23,10 @@ Chroma vector store
         v
 rag.retriever
   embed query -> nearest-neighbor search -> relevant context
+        |
+        v
+agent.graph
+  prepare context -> retrieve -> classify -> owner -> RCA -> comment -> approval gate
         |
         v
 llm.TriageService
@@ -74,11 +78,37 @@ classify_issue
 
 Each step returns a Pydantic model, which is the shape future LangGraph nodes will pass through graph state.
 
+### LangGraph Workflow Path
+
+Run:
+
+```bash
+python scripts/smoke_test_langgraph.py
+```
+
+This runs the current controlled workflow:
+
+```text
+START
+  -> prepare_context
+  -> retrieve_context
+  -> classify_issue
+  -> recommend_owner
+  -> generate_rca
+  -> draft_comment
+  -> approval_gate
+  -> END
+```
+
+The approval gate only sets `approval_required` and `approval_reason`. Actual human approval persistence and UI handling are intentionally deferred.
+
 ## Separation Of Concerns
 
 `data/` is the knowledge base. It contains the raw text that retrieval should search.
 
 `rag/` owns retrieval infrastructure. It does not decide final triage answers; it prepares context.
+
+`agent/` owns workflow orchestration. It uses LangGraph to pass serializable state through clear nodes.
 
 `llm/` owns structured reasoning. It defines schemas, a service layer, a base client interface, and provider implementations.
 
@@ -90,4 +120,4 @@ Each step returns a Pydantic model, which is the shape future LangGraph nodes wi
 
 The system separates retrieval from reasoning. Retrieval finds relevant evidence. The LLM uses that evidence to form recommendations. This mirrors production RAG systems, where the LLM does not permanently know private company context; the application fetches that context at runtime and injects it into the prompt.
 
-The system also separates orchestration from model calls. `TriageService` exposes clean methods that LangGraph can call later without caring whether the backing model is a mock client or OpenAI.
+The system also separates orchestration from model calls. LangGraph coordinates state transitions, while `TriageService` owns model-facing business logic. This keeps the graph explicit without turning the project into a complex multi-agent system.

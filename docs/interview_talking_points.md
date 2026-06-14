@@ -10,6 +10,8 @@ The current system has a local RAG pipeline. It ingests engineering knowledge fr
 
 The reasoning layer is abstracted behind `BaseTriageLLM` and exposed through `TriageService`. During MVP development, it uses a mock client to avoid token spend. Later, the same interface can call OpenAI or another LLM provider. The four structured reasoning steps are classification, owner recommendation, RCA generation, and draft comment creation.
 
+LangGraph now orchestrates those steps as a lightweight state machine. It prepares the issue context, retrieves relevant RAG chunks, calls the structured triage service, drafts the comment, and sets the approval gate fields.
+
 ## How To Explain RAG In This Project
 
 RAG is used to ground the model in project-specific context. Instead of asking an LLM to guess the owner or root cause from a GitHub issue alone, the application retrieves relevant troubleshooting docs, historical issues, code summaries, logs, and ownership metadata. The LLM can then reason over both the user issue and the retrieved evidence.
@@ -35,6 +37,10 @@ Structured outputs make it easier to:
 - pass state through LangGraph
 - evaluate quality
 - show human reviewers consistent fields
+
+## Why LangGraph Is Used
+
+I used LangGraph as a lightweight workflow orchestrator, not because the MVP strictly required it, but because the system models a stateful enterprise workflow: retrieve context, classify, recommend ownership, generate RCA, draft a response, and route for human approval. I kept business logic in plain Python modules and used LangGraph to make the workflow explicit, testable, and extensible.
 
 ## Why The MVP Uses Hash Embeddings
 
@@ -79,6 +85,12 @@ Another strong framing:
 
 ```text
 Before adding LangGraph, I created stable typed functions for each reasoning step. That gives the graph clean nodes to orchestrate: classify, route ownership, generate RCA, and draft a comment. The graph will coordinate the workflow, but the business logic already lives behind testable service methods.
+```
+
+Now that LangGraph is in place:
+
+```text
+I kept LangGraph intentionally boring: a linear workflow over a serializable state object. The graph does orchestration, not business logic. That makes the next FastAPI step straightforward because the API can call one function, run_triage_workflow(), and return the final state.
 ```
 
 ## Tradeoffs To Name Clearly

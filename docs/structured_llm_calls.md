@@ -125,15 +125,17 @@ Prompt files:
 Run:
 
 ```bash
-python scripts/smoke_test_structured_llm.py
+python scripts/smoke_test_structured_llm.py --provider mock
+python scripts/smoke_test_structured_llm.py --provider openai
 ```
 
-This creates a firmware issue context, runs all four structured calls with the mock client, and prints JSON output for each step.
+This creates a firmware issue context, runs all four structured calls, and prints JSON output for each step. Use `--provider mock` for free deterministic local output. Use `--provider openai` for a real API integration test.
 
 For the full current flow, including Chroma retrieval before triage, run:
 
 ```bash
-python scripts/smoke_test_rag_to_llm.py
+python scripts/smoke_test_rag_to_llm.py --provider mock
+python scripts/smoke_test_rag_to_llm.py --provider openai
 ```
 
 That script reads `data/sample_issues/sample_issue_001.md`, retrieves the top matching chunks from Chroma, adds those chunks to `TriageContext.retrieved_context`, and then runs the four structured triage calls.
@@ -155,7 +157,7 @@ The tests verify:
 
 ## How This Plugs Into LangGraph
 
-In Step 6, each structured method can become a LangGraph node:
+Step 6 is now implemented. Each structured method is called by a LangGraph node:
 
 ```text
 classify_issue_node
@@ -173,3 +175,10 @@ The graph state can store:
 - `draft_comment: DraftCommentOutput`
 
 That keeps orchestration clean and makes each node easy to test.
+
+For the full LangGraph workflow, run:
+
+```bash
+python scripts/smoke_test_langgraph.py --provider mock
+python scripts/smoke_test_langgraph.py --provider openai
+```
