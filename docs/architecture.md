@@ -4,7 +4,7 @@
 
 `bug-triage-automation-workflow` is an Agentic Engineering Operations Assistant. The end-state system will analyze GitHub issues, retrieve relevant repository and operational context, recommend ownership, generate root cause hypotheses, suggest remediation steps, and require human approval before taking action.
 
-The current implementation reaches Step 6: the data foundation, RAG ingestion/retrieval, structured LLM calls, and LangGraph orchestration are in place.
+The current implementation reaches Step 7: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, and FastAPI wrapper are in place.
 
 ## Current MVP Architecture
 
@@ -35,6 +35,10 @@ llm.TriageService
         v
 BaseTriageLLM implementation
   MockTriageLLM now, OpenAITriageLLM later
+        |
+        v
+src.api
+  /health and /triage
 ```
 
 ## Main Runtime Paths
@@ -83,7 +87,7 @@ Each step returns a Pydantic model, which is the shape future LangGraph nodes wi
 Run:
 
 ```bash
-python scripts/smoke_test_langgraph.py
+python scripts/smoke_test_langgraph.py --provider mock
 ```
 
 This runs the current controlled workflow:
@@ -102,6 +106,29 @@ START
 
 The approval gate only sets `approval_required` and `approval_reason`. Actual human approval persistence and UI handling are intentionally deferred.
 
+### FastAPI Path
+
+Run an in-process smoke test:
+
+```bash
+python scripts/smoke_test_fastapi.py --provider mock
+```
+
+Start a local server:
+
+```bash
+uvicorn src.api.main:app --reload
+```
+
+Endpoints:
+
+```text
+GET /health
+POST /triage
+```
+
+`POST /triage` accepts a ticket ID, title, description, provider, and approval preference. It calls the existing LangGraph workflow and returns the final state as JSON.
+
 ## Separation Of Concerns
 
 `data/` is the knowledge base. It contains the raw text that retrieval should search.
@@ -113,6 +140,8 @@ The approval gate only sets `approval_required` and `approval_reason`. Actual hu
 `llm/` owns structured reasoning. It defines schemas, a service layer, a base client interface, and provider implementations.
 
 `prompts/` owns hosted LLM task instructions for classification, owner recommendation, RCA generation, and comment drafting.
+
+`src/api/` owns HTTP transport. It validates API payloads and delegates workflow execution to `agent.graph`.
 
 `docs/` explains how the system works and how to discuss the architecture.
 

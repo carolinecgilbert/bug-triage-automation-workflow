@@ -349,6 +349,94 @@ Why it matters:
 
 These tests protect the orchestration layer and ensure it stays mock-only, local, and network-free.
 
+## `src/api/main.py`
+
+Defines the FastAPI application and HTTP routes.
+
+Endpoints:
+
+- `GET /health`
+- `POST /triage`
+
+Role in the stack:
+
+```text
+HTTP request -> run_triage_workflow() -> structured JSON response
+```
+
+Why it matters:
+
+This is the first external interface for the workflow. It intentionally delegates to the existing LangGraph layer instead of duplicating triage logic inside route handlers.
+
+## `src/api/schemas.py`
+
+Defines API request and response models.
+
+Important models:
+
+- `TriageRequest`
+- `TriageResponse`
+- `HealthResponse`
+
+Role in the stack:
+
+```text
+external JSON payload -> validated API model -> graph input state
+```
+
+Why it matters:
+
+The API contract is explicit and separate from internal graph state. This keeps future clients, tests, and docs aligned.
+
+## `src/api/dependencies.py`
+
+Creates the requested LLM client for API-triggered workflows.
+
+Role in the stack:
+
+```text
+provider field -> MockTriageLLM or OpenAITriageLLM
+```
+
+Why it matters:
+
+Provider selection is explicit. `mock` remains the default for safe local testing, while `openai` is available for intentional integration testing.
+
+## `scripts/smoke_test_fastapi.py`
+
+Manual smoke test for the FastAPI layer.
+
+Role in the stack:
+
+```text
+TestClient -> /health and /triage -> printed JSON response
+```
+
+Why it matters:
+
+It verifies the API contract without requiring a running server process.
+
+Run with:
+
+```bash
+python scripts/smoke_test_fastapi.py --provider mock
+python scripts/smoke_test_fastapi.py --provider openai
+```
+
+## `tests/test_api.py`
+
+Automated tests for the FastAPI app.
+
+Role in the stack:
+
+```text
+TestClient request -> endpoint response assertions
+```
+
+Why it matters:
+
+These tests verify `/health`, `/triage`, default provider behavior, and that the API returns the final triage state.
+
 ## `.env` And `.env.example`
 
 `.env` contains local runtime configuration and secrets. It should not be committed.
