@@ -4,7 +4,7 @@
 
 `bug-triage-automation-workflow` is an Agentic Engineering Operations Assistant. The end-state system will analyze GitHub issues, retrieve relevant repository and operational context, recommend ownership, generate root cause hypotheses, suggest remediation steps, and require human approval before taking action.
 
-The current implementation reaches Step 7: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, and FastAPI wrapper are in place.
+The current implementation reaches Step 8: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, FastAPI wrapper, and Postgres persistence are in place.
 
 ## Current MVP Architecture
 
@@ -38,7 +38,11 @@ BaseTriageLLM implementation
         |
         v
 src.api
-  /health and /triage
+  /health, /triage, /triage/{run_id}, /feedback
+        |
+        v
+Postgres via SQLAlchemy
+  triage runs + retrieved sources + human feedback
 ```
 
 ## Main Runtime Paths
@@ -125,9 +129,50 @@ Endpoints:
 ```text
 GET /health
 POST /triage
+GET /triage
+GET /triage/{run_id}
+POST /feedback
 ```
 
 `POST /triage` accepts a ticket ID, title, description, provider, and approval preference. It calls the existing LangGraph workflow and returns the final state as JSON.
+
+### Persistence Path
+
+Run local Postgres:
+
+```bash
+docker compose up -d
+```
+
+Run a persistence smoke test:
+
+```bash
+python scripts/smoke_test_persistence.py --provider mock
+```
+
+The persistence layer stores:
+
+- issue input and generated `run_id`
+- final triage state from LangGraph
+- provider, status, latency, and approval fields
+- retrieved RAG source metadata and short previews
+- human feedback submitted after review
+
+Chroma and Postgres serve different jobs. Chroma is the vector store for retrieval. Postgres is the application system of record for workflow history, auditability, and future UI views.
+
+Inspect the database:
+
+```bash
+docker compose exec postgres psql -U bugtriage -d bugtriage
+```
+
+Core tables:
+
+```text
+triage_runs       one row per agent workflow run
+retrieved_sources RAG evidence retrieved for a run
+human_feedback    reviewer feedback attached to a run
+```
 
 ## Separation Of Concerns
 
@@ -143,6 +188,8 @@ POST /triage
 
 `src/api/` owns HTTP transport. It validates API payloads and delegates workflow execution to `agent.graph`.
 
+`src/db/` owns relational persistence. It stores runs, retrieved evidence, and human feedback using SQLAlchemy.
+
 `docs/` explains how the system works and how to discuss the architecture.
 
 ## Why This Design Matters
@@ -150,3 +197,5 @@ POST /triage
 The system separates retrieval from reasoning. Retrieval finds relevant evidence. The LLM uses that evidence to form recommendations. This mirrors production RAG systems, where the LLM does not permanently know private company context; the application fetches that context at runtime and injects it into the prompt.
 
 The system also separates orchestration from model calls. LangGraph coordinates state transitions, while `TriageService` owns model-facing business logic. This keeps the graph explicit without turning the project into a complex multi-agent system.
+
+The system separates retrieval storage from application storage. Chroma stores vectorized chunks optimized for similarity search. Postgres stores durable workflow records optimized for querying, audit, feedback, and future product surfaces.

@@ -1,16 +1,17 @@
 # Bug Triage Automation Workflow Docs
 
-This directory explains the project as it exists after Step 5: RAG ingestion, retrieval, and structured LLM calls.
+This directory explains the project as it exists after Step 8: RAG ingestion, retrieval, structured LLM calls, LangGraph orchestration, FastAPI, and Postgres persistence.
 
 ## Reading Order
 
 1. [Project Progress](project_progress.md)
 2. [Architecture Overview](architecture.md)
 3. [RAG Pipeline](rag_pipeline.md)
-4. [Structured LLM Calls](structured_llm_calls.md)
-5. [Component Guide](component_guide.md)
-6. [MVP vs Production](mvp_vs_production.md)
-7. [Interview Talking Points](interview_talking_points.md)
+4. [Running The App](running_the_app.md)
+5. [Structured LLM Calls](structured_llm_calls.md)
+6. [Component Guide](component_guide.md)
+7. [MVP vs Production](mvp_vs_production.md)
+8. [Interview Talking Points](interview_talking_points.md)
 
 ## Current Scope
 
@@ -27,13 +28,14 @@ The project currently supports:
 - A mock LLM reasoning layer behind an abstract base client
 - Optional provider paths for OpenAI embeddings and OpenAI LLM reasoning
 - Prompt files for hosted structured LLM calls
-- A smoke script and pytest coverage for the structured LLM flow
+- LangGraph workflow orchestration with an approval gate
+- FastAPI endpoints for health checks, triage, run lookup, run listing, and feedback
+- Postgres persistence through SQLAlchemy
+- Smoke scripts and pytest coverage for structured LLM, LangGraph, FastAPI, and persistence paths
+- A local runbook for starting Postgres, exercising the API, and inspecting persisted tables
 
 The project does not yet include:
 
 - GitHub API ingestion
-- FastAPI routes
-- LangGraph orchestration
 - Frontend UI
-- Human approval persistence
 - Automated GitHub comments, labels, or assignments

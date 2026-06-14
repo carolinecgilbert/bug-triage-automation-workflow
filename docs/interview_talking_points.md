@@ -12,6 +12,8 @@ The reasoning layer is abstracted behind `BaseTriageLLM` and exposed through `Tr
 
 LangGraph now orchestrates those steps as a lightweight state machine. It prepares the issue context, retrieves relevant RAG chunks, calls the structured triage service, drafts the comment, and sets the approval gate fields.
 
+FastAPI exposes that workflow as an HTTP API, and Postgres stores each run. The persisted record includes the input issue, final state, retrieved evidence, latency, approval requirement, status, and any human feedback.
+
 ## How To Explain RAG In This Project
 
 RAG is used to ground the model in project-specific context. Instead of asking an LLM to guess the owner or root cause from a GitHub issue alone, the application retrieves relevant troubleshooting docs, historical issues, code summaries, logs, and ownership metadata. The LLM can then reason over both the user issue and the retrieved evidence.
@@ -59,6 +61,26 @@ Chroma is the local vector store. It stores:
 
 At query time, Chroma performs nearest-neighbor search to find chunks whose vectors are close to the query vector.
 
+## What Postgres Does
+
+Postgres is the system of record for the application. Chroma answers "what context is relevant?" while Postgres answers "what happened during this workflow run?"
+
+The MVP stores:
+
+- triage run input and final output
+- retrieved source metadata and previews
+- latency and status
+- approval state
+- human feedback
+
+This is important because production AI systems need auditability. Engineers and stakeholders need to inspect what the agent retrieved, what it recommended, and whether humans accepted or corrected the result.
+
+## Why SQLAlchemy And Dockerized Postgres
+
+I used SQLAlchemy because it keeps database access explicit and testable while still allowing different database URLs for local development, tests, and cloud deployment.
+
+I used Dockerized Postgres because it gives the MVP a realistic relational database without requiring a cloud account. Since the app reads `DATABASE_URL`, moving from local Docker to AWS RDS or GCP Cloud SQL should primarily be a configuration change, not an application rewrite.
+
 ## Production Evolution
 
 A production version would likely add:
@@ -93,6 +115,12 @@ Now that LangGraph is in place:
 I kept LangGraph intentionally boring: a linear workflow over a serializable state object. The graph does orchestration, not business logic. That makes the next FastAPI step straightforward because the API can call one function, run_triage_workflow(), and return the final state.
 ```
 
+Now that persistence is in place:
+
+```text
+I added Postgres as the system of record. Chroma remains the retrieval index, but Postgres stores the durable workflow history: issue input, final triage output, retrieved evidence, latency, approval state, and human feedback. That gives the system auditability and creates the foundation for a UI, evals, and continuous improvement.
+```
+
 ## Tradeoffs To Name Clearly
 
 The current system optimizes for learning speed and local development, not final model quality.
@@ -104,6 +132,8 @@ Tradeoffs:
 - full collection rebuild is simple but not scalable
 - mock LLM is deterministic but not intelligent
 - fake data is good for development but real issue data will require privacy and access controls
+- `create_all()` is fine for the MVP but production should use Alembic migrations
+- local Docker Postgres is realistic for development but production needs managed backups, access controls, and monitoring
 
 Being able to name these tradeoffs is a strength. It shows you understand both the MVP and the production path.
 
@@ -120,3 +150,6 @@ Being able to name these tradeoffs is a strength. It shows you understand both t
 - human-in-the-loop: requiring human approval before action
 - incremental ingestion: updating only changed documents in the vector store
 - structured output: predictable machine-readable LLM response
+- system of record: durable database storing authoritative workflow history
+- audit trail: record of inputs, evidence, outputs, and human decisions
+- migration: controlled database schema change, usually managed with Alembic in Python apps

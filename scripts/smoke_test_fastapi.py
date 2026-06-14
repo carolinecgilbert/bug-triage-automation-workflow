@@ -18,8 +18,6 @@ from fastapi.testclient import TestClient
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.api.main import app
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Smoke test the FastAPI triage endpoint.")
@@ -31,21 +29,30 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    client = TestClient(app)
-    health_response = client.get("/health")
-    triage_response = client.post(
-        "/triage",
-        json={
-            "ticket_id": "BUG-FASTAPI-001",
-            "title": "Firmware update fails validation on HW-B2 devices",
-            "description": (
-                "Devices in the OTA beta rollout download firmware 4.13.2 but fail "
-                "with manifest hash mismatch and failed_integrity_check."
-            ),
-            "provider": args.provider,
-            "require_approval": True,
-        },
-    )
+    try:
+        from src.api.main import app
+
+        with TestClient(app) as client:
+            health_response = client.get("/health")
+            triage_response = client.post(
+                "/triage",
+                json={
+                    "ticket_id": "BUG-FASTAPI-001",
+                    "title": "Firmware update fails validation on HW-B2 devices",
+                    "description": (
+                        "Devices in the OTA beta rollout download firmware 4.13.2 but fail "
+                        "with manifest hash mismatch and failed_integrity_check."
+                    ),
+                    "provider": args.provider,
+                    "require_approval": True,
+                },
+            )
+    except Exception as exc:
+        raise SystemExit(
+            "Could not run FastAPI smoke test. If using local Postgres, run: "
+            "`docker compose up -d`. Details: "
+            f"{exc}"
+        ) from exc
 
     print("health")
     print(json.dumps(health_response.json(), indent=2))
@@ -59,4 +66,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

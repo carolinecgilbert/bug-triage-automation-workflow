@@ -138,6 +138,34 @@ Production approval flow might include:
 - approval or rejection by a human
 - audit log of action taken
 
+## Local Postgres vs Production Persistence
+
+The MVP uses Dockerized Postgres with SQLAlchemy:
+
+```env
+DATABASE_URL=postgresql+psycopg://bugtriage:bugtriage@localhost:5432/bugtriage
+```
+
+This is a good local development choice because it gives the project a real relational database and keeps the application close to a deployable architecture.
+
+The MVP stores:
+
+- `triage_runs`: issue input, workflow output, latency, status, and approval state
+- `retrieved_sources`: retrieved RAG evidence metadata and previews
+- `human_feedback`: reviewer approval and usefulness signals
+
+Production persistence would add:
+
+- managed Postgres such as AWS RDS, GCP Cloud SQL, Neon, or Supabase
+- Alembic migrations instead of `Base.metadata.create_all()`
+- backups and point-in-time recovery
+- stricter credentials and secret management
+- row-level access controls if multiple teams or tenants use the app
+- retention policies for issue content and logs
+- database monitoring and slow-query visibility
+
+The key architectural idea is that Chroma and Postgres are not interchangeable. Chroma is optimized for vector similarity search. Postgres is the durable system of record for workflow history and human decisions.
+
 ## Observability Needed Later
 
 Production AI workflows need observability around both retrieval and generation.
