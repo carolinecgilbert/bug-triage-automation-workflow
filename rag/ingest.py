@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import os
 from pathlib import Path
@@ -20,6 +21,18 @@ SUPPORTED_EXTENSIONS = {".md", ".log", ".json"}
 def main() -> None:
     load_dotenv()
 
+    parser = argparse.ArgumentParser(description="Ingest local bug triage source data into Chroma.")
+    parser.add_argument(
+        "--provider",
+        choices=["hash", "openai", "sentence-transformers", "local"],
+        default=os.getenv("EMBEDDING_PROVIDER", "hash"),
+        help=(
+            "Embedding provider to use. Defaults to EMBEDDING_PROVIDER or hash. "
+            "Use openai for hosted embeddings."
+        ),
+    )
+    args = parser.parse_args()
+
     chroma_db_dir = os.getenv("CHROMA_DB_DIR", "chroma_db")
     collection_name = os.getenv("CHROMA_COLLECTION_NAME", "bug_triage_rag")
 
@@ -29,7 +42,7 @@ def main() -> None:
     if not chunk_records:
         raise RuntimeError("No chunks were created. Check that data/ contains supported source files.")
 
-    embedding_client = create_embedding_client()
+    embedding_client = create_embedding_client(provider=args.provider)
     embeddings = embedding_client.embed_texts([record["text"] for record in chunk_records])
 
     chroma_client = chromadb.PersistentClient(path=chroma_db_dir)

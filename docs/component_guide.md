@@ -68,6 +68,13 @@ Why it matters:
 
 This is the offline or batch indexing process. In production, this would likely run on a schedule, on document changes, or as part of a repository sync pipeline.
 
+Run with:
+
+```bash
+python -m rag.ingest --provider hash
+python -m rag.ingest --provider openai
+```
+
 ## `rag/retriever.py`
 
 Owns query-time retrieval.
@@ -81,6 +88,13 @@ query -> query vector -> Chroma search -> relevant chunks
 Why it matters:
 
 This is the runtime path that gives the LLM private, current, task-specific context.
+
+Run with the same provider used for ingestion:
+
+```bash
+python -m rag.retriever "firmware update hash mismatch" --provider hash
+python -m rag.retriever "firmware update hash mismatch" --provider openai
+```
 
 ## `llm/base_client.py`
 
@@ -510,6 +524,53 @@ python scripts/smoke_test_persistence.py --provider mock
 python scripts/smoke_test_persistence.py --provider openai
 ```
 
+## `frontend/streamlit_app.py`
+
+Defines the Streamlit demo UI.
+
+Pages:
+
+- Submit Issue
+- Run History
+- Run Details / Feedback
+
+Role in the stack:
+
+```text
+human demo user -> Streamlit form -> FastAPI HTTP endpoint -> persisted workflow result
+```
+
+Why it matters:
+
+This is the customer-facing demo layer. It intentionally communicates only with FastAPI using `requests`; it does not call LangGraph, RAG, LLM, or SQLAlchemy directly. That preserves FastAPI as the backend contract and keeps the UI replaceable.
+
+Run with:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+## `scripts/smoke_test_streamlit_api.py`
+
+Manual smoke test for the HTTP endpoints used by Streamlit.
+
+Role in the stack:
+
+```text
+requests -> /health -> /triage -> /triage -> /triage/{run_id} -> /feedback
+```
+
+Why it matters:
+
+It verifies the frontend's API contract without launching a browser.
+
+Run after starting FastAPI:
+
+```bash
+python scripts/smoke_test_streamlit_api.py --provider mock
+python scripts/smoke_test_streamlit_api.py --provider openai
+```
+
 ## `tests/test_api.py`
 
 Automated tests for the FastAPI app.
@@ -553,5 +614,6 @@ CHROMA_COLLECTION_NAME=bug_triage_rag
 EMBEDDING_PROVIDER=hash
 HASH_EMBEDDING_DIMENSIONS=384
 LLM_PROVIDER=mock
+API_BASE_URL=http://127.0.0.1:8000
 DATABASE_URL=postgresql+psycopg://bugtriage:bugtriage@localhost:5432/bugtriage
 ```

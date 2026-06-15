@@ -8,19 +8,25 @@ import os
 import chromadb
 from dotenv import load_dotenv
 
-from rag.embeddings import create_embedding_client
+from rag.embeddings import EmbeddingClient, create_embedding_client
 
 DEFAULT_TOP_K = 5
 
 
-def retrieve_chunks(query: str, top_k: int = DEFAULT_TOP_K) -> list[dict[str, object]]:
+def retrieve_chunks(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    provider: str | None = None,
+    embedding_client: EmbeddingClient | None = None,
+) -> list[dict[str, object]]:
     """Retrieve top matching chunks for a query from the configured Chroma collection."""
     load_dotenv()
 
     chroma_db_dir = os.getenv("CHROMA_DB_DIR", "chroma_db")
     collection_name = os.getenv("CHROMA_COLLECTION_NAME", "bug_triage_rag")
 
-    embedding_client = create_embedding_client()
+    if embedding_client is None:
+        embedding_client = create_embedding_client(provider=provider)
     query_embedding = embedding_client.embed_query(query)
 
     chroma_client = chromadb.PersistentClient(path=chroma_db_dir)
@@ -47,17 +53,31 @@ def retrieve_chunks(query: str, top_k: int = DEFAULT_TOP_K) -> list[dict[str, ob
 
 
 def main() -> None:
+    load_dotenv()
+
     parser = argparse.ArgumentParser(description="Retrieve relevant RAG chunks for a bug triage query.")
     parser.add_argument("query", help="Bug report, symptom, log line, or triage question to search for.")
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K, help="Number of chunks to return.")
+    parser.add_argument(
+        "--provider",
+        choices=["hash", "openai", "sentence-transformers", "local"],
+        default=os.getenv("EMBEDDING_PROVIDER", "hash"),
+        help=(
+            "Embedding provider to use. Must match the provider used for ingestion. "
+            "Defaults to EMBEDDING_PROVIDER or hash."
+        ),
+    )
     args = parser.parse_args()
-
-    load_dotenv()
 
     collection_name = os.getenv("CHROMA_COLLECTION_NAME", "bug_triage_rag")
 
-    embedding_client = create_embedding_client()
-    chunks = retrieve_chunks(args.query, top_k=args.top_k)
+    embedding_client = create_embedding_client(provider=args.provider)
+    chunks = retrieve_chunks(
+        args.query,
+        top_k=args.top_k,
+        provider=args.provider,
+        embedding_client=embedding_client,
+    )
 
     print(f"Top {args.top_k} results from collection '{collection_name}'")
     print(f"Embedding provider: {embedding_client.provider_name}")

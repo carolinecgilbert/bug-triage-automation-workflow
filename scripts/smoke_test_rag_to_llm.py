@@ -7,7 +7,7 @@ Run from the repository root:
 
 If the Chroma collection does not exist yet, run:
 
-    python -m rag.ingest
+    python -m rag.ingest --provider hash
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def main() -> None:
         retrieved_chunks = retrieve_chunks(issue_text, top_k=5)
     except Exception as exc:
         raise SystemExit(
-            "Could not retrieve from Chroma. Run `python -m rag.ingest` first, "
+            "Could not retrieve from Chroma. Run `python -m rag.ingest --provider hash` first, "
             "then retry `python scripts/smoke_test_rag_to_llm.py`."
         ) from exc
 
