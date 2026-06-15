@@ -4,7 +4,7 @@
 
 `bug-triage-automation-workflow` is an Agentic Engineering Operations Assistant. The end-state system will analyze GitHub issues, retrieve relevant repository and operational context, recommend ownership, generate root cause hypotheses, suggest remediation steps, and require human approval before taking action.
 
-The current implementation reaches Step 9: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, FastAPI wrapper, Postgres persistence, and Streamlit demo UI are in place.
+The current implementation reaches Step 10: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, FastAPI wrapper, Postgres persistence, Streamlit demo UI, and offline eval harness are in place.
 
 ## Current MVP Architecture
 
@@ -50,6 +50,21 @@ BaseTriageLLM implementation
         v
 Postgres via SQLAlchemy
   triage runs + retrieved sources + human feedback
+
+Offline evaluation path:
+
+evals/test_cases.json
+        |
+        v
+evals.runner
+  run existing LangGraph workflow for each labeled case
+        |
+        v
+evals.metrics
+  score component, owner, issue type, approval, retrieval, latency
+        |
+        v
+evals/results/latest_results.json
 ```
 
 ## Main Runtime Paths
@@ -199,6 +214,27 @@ retrieved_sources RAG evidence retrieved for a run
 human_feedback    reviewer feedback attached to a run
 ```
 
+### Eval Path
+
+Run:
+
+```bash
+python scripts/run_evals.py --provider mock
+```
+
+This loads labeled cases from `evals/test_cases.json`, runs each case through the same LangGraph workflow used by the API, scores the final state, prints summary metrics, and writes JSON results to `evals/results/latest_results.json`.
+
+Current metrics:
+
+- component accuracy
+- owner recommendation accuracy
+- issue type accuracy
+- approval routing accuracy
+- retrieval hit rate
+- latency
+
+The eval harness does not use LLM-as-judge yet. RCA and comment quality are intentionally left for a later production-grade eval step.
+
 ## Separation Of Concerns
 
 `data/` is the knowledge base. It contains the raw text that retrieval should search.
@@ -217,6 +253,8 @@ human_feedback    reviewer feedback attached to a run
 
 `frontend/` owns the demo UI. It is intentionally a thin HTTP client over FastAPI.
 
+`evals/` owns offline quality checks. It uses labeled examples and the existing graph runner to measure workflow behavior.
+
 `docs/` explains how the system works and how to discuss the architecture.
 
 ## Why This Design Matters
@@ -228,3 +266,5 @@ The system also separates orchestration from model calls. LangGraph coordinates 
 The system separates retrieval storage from application storage. Chroma stores vectorized chunks optimized for similarity search. Postgres stores durable workflow records optimized for querying, audit, feedback, and future product surfaces.
 
 The system separates frontend UX from backend workflow execution. Streamlit demonstrates the product experience, while FastAPI remains the stable service boundary for running triage and storing feedback.
+
+The system separates demos from evaluation. The Streamlit app shows the workflow, while the offline eval harness measures whether workflow changes improve or regress labeled behavior.

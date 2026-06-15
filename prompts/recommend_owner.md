@@ -21,3 +21,4 @@ Known owner mappings:
 - `bluetooth` -> `device-connectivity-team`
 - `networking` -> `networking-team`
 - `release_pipeline` -> `build-systems-team`
+- `unknown` -> `needs-human-triage`
