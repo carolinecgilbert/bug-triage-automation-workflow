@@ -2,7 +2,29 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+from pydantic import model_validator
+
+
+IssueType = Literal["bug", "unknown"]
+ComponentName = Literal[
+    "firmware_update",
+    "auth",
+    "bluetooth",
+    "networking",
+    "release_pipeline",
+    "unknown",
+]
+OwnerTeam = Literal[
+    "platform-team",
+    "firmware-update-team",
+    "device-connectivity-team",
+    "networking-team",
+    "build-systems-team",
+    "needs-human-triage",
+]
 
 
 class TriageContext(BaseModel):
@@ -20,8 +42,8 @@ class TriageContext(BaseModel):
 class ClassificationOutput(BaseModel):
     """Structured classification result for a bug report."""
 
-    issue_type: str
-    component: str
+    issue_type: IssueType
+    component: ComponentName
     severity: str
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning_summary: str
@@ -30,9 +52,16 @@ class ClassificationOutput(BaseModel):
 class OwnerRecommendationOutput(BaseModel):
     """Structured team ownership recommendation."""
 
-    recommended_owner: str
+    recommended_owner: OwnerTeam
     confidence: float = Field(ge=0.0, le=1.0)
     supporting_evidence: list[str]
+
+    @model_validator(mode="after")
+    def unknown_owner_requires_human_triage(self) -> "OwnerRecommendationOutput":
+        """Keep low-confidence/unknown ownership routed to humans."""
+        if self.recommended_owner == "needs-human-triage" and self.confidence > 0.75:
+            self.confidence = 0.75
+        return self
 
 
 class RCAOutput(BaseModel):
@@ -50,4 +79,3 @@ class DraftCommentOutput(BaseModel):
     comment: str
     approval_required: bool
     tone: str
-

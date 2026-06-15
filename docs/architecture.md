@@ -233,6 +233,13 @@ Current metrics:
 - retrieval hit rate
 - latency
 
+Classification and ownership policy:
+
+- Classification outputs are constrained to known values: `bug` or `unknown` for issue type, and known component names or `unknown` for component.
+- If evidence is weak, the workflow should prefer `unknown` and route ownership to `needs-human-triage`.
+- If multiple components are plausible, the workflow should choose a primary component only when one direct failure signal is clearly strongest and confidence is at least `0.75`.
+- Otherwise, ambiguous issues should route to human triage.
+
 The eval harness does not use LLM-as-judge yet. RCA and comment quality are intentionally left for a later production-grade eval step.
 
 ## Separation Of Concerns

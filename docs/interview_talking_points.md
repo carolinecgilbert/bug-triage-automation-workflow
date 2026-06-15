@@ -87,6 +87,10 @@ I used Dockerized Postgres because it gives the MVP a realistic relational datab
 
 I added an offline evaluation harness that runs labeled issues through the same LangGraph workflow used by the API. It measures component accuracy, owner recommendation accuracy, issue type accuracy, approval routing correctness, retrieval hit rate, and latency. This gives me a repeatable way to test prompt, retrieval, and workflow changes instead of relying on anecdotal demo quality.
 
+The eval setup also surfaced an important production lesson: retrieval and ingestion must use the same embedding provider and vector dimensionality. When I ingested with OpenAI embeddings but evaluated with hash retrieval, Chroma rejected the query vectors. That is exactly the kind of configuration issue a production system should make explicit and validate early.
+
+The OpenAI evals also surfaced a model-behavior issue: the model sometimes over-inferred owners for ambiguous cases. I hardened the classification and ownership policy so weak evidence maps to `unknown` and `needs-human-triage`, and multi-component issues only choose a primary owner when one direct failure signal is clearly strongest.
+
 ## Production Evolution
 
 A production version would likely add:
@@ -133,6 +137,12 @@ Now that evals are in place:
 I added an offline eval harness with labeled issue cases. It runs the same graph used by the API, scores structured outputs and retrieval evidence, and writes results to JSON. That gives me a regression test loop for workflow quality before adding more complex production evals like LLM-as-judge or online feedback metrics.
 ```
 
+Now that routing policy is hardened:
+
+```text
+The evals showed that the hosted model could over-infer on ambiguous issues, so I tightened the output schema and prompt policy. The classifier can only return known components or unknown, and ownership routes to needs-human-triage when evidence is weak. That is an AI safety and reliability pattern: prefer human escalation over unsupported automation.
+```
+
 ## Tradeoffs To Name Clearly
 
 The current system optimizes for learning speed and local development, not final model quality.
@@ -147,6 +157,7 @@ Tradeoffs:
 - `create_all()` is fine for the MVP but production should use Alembic migrations
 - local Docker Postgres is realistic for development but production needs managed backups, access controls, and monitoring
 - offline evals measure structured fields and retrieval hits, but they do not yet judge RCA or comment quality semantically
+- hard enum constraints improve reliability but require prompt alignment so hosted models return valid structured values
 
 Being able to name these tradeoffs is a strength. It shows you understand both the MVP and the production path.
 

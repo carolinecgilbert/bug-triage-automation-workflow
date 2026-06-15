@@ -102,7 +102,7 @@ You can run offline evals:
 
 ```bash
 python scripts/run_evals.py --provider mock
-python scripts/run_evals.py --provider openai
+EMBEDDING_PROVIDER=openai python scripts/run_evals.py --provider openai
 ```
 
 You can inspect stored runs in Postgres:
@@ -228,5 +228,12 @@ Step 10 added:
 - `evals/runner.py`: runner that executes the existing LangGraph workflow over eval cases
 - `scripts/run_evals.py`: CLI for running evals and writing `evals/results/latest_results.json`
 - `tests/test_evals.py`: focused tests for metric behavior and one mock eval run
+
+The eval pass also led to classification and ownership policy hardening:
+
+- issue type is constrained to `bug` or `unknown`
+- component is constrained to known components or `unknown`
+- unknown or weak-evidence cases route to `needs-human-triage`
+- multi-component cases choose a primary component only when the strongest direct failure signal is clear
 
 This completes the original MVP plan. The project now has a repeatable way to test prompt, retrieval, and workflow changes instead of relying only on demo impressions.

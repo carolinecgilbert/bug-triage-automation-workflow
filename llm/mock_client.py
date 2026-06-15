@@ -136,6 +136,13 @@ def infer_component_owner_and_confidence(text: str) -> tuple[str, str, float]:
     best_component, best_score = max(scores.items(), key=lambda item: item[1])
 
     if best_score > 0:
+        tied_components = [
+            component
+            for component, score in scores.items()
+            if score == best_score
+        ]
+        if len(tied_components) > 1:
+            return "unknown", "needs-human-triage", 0.65
         return best_component, OWNER_BY_COMPONENT[best_component], 0.85
 
     return "unknown", "needs-human-triage", 0.35

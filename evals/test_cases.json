@@ -252,13 +252,13 @@
     "description": "During onboarding, Bluetooth pairing occasionally fails and login redirects once before succeeding.",
     "labels": ["needs-triage", "pairing", "login"],
     "logs": ["WARN onboarding intermittent pairing timeout; WARN login redirect retry"],
-    "expected_component": "auth",
-    "expected_owner": "platform-team",
-    "expected_issue_type": "bug",
+    "expected_component": "unknown",
+    "expected_owner": "needs-human-triage",
+    "expected_issue_type": "unknown",
     "expected_approval_required": true,
     "expected_retrieved_sources": [
-      "auth_troubleshooting.md",
-      "bluetooth_pairing_troubleshooting.md"
+      "bluetooth_pairing_troubleshooting.md",
+      "auth_troubleshooting.md"
     ]
   }
 ]

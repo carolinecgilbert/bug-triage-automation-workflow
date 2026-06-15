@@ -585,6 +585,8 @@ Why it matters:
 
 Eval cases turn subjective demo quality into repeatable checks. The current dataset covers firmware, auth, bluetooth, networking, release pipeline, and ambiguous issues.
 
+The eval labels also encode routing policy. For example, `EVAL-016` mentions both pairing and login, so it is treated as `unknown` because no component has a clearly stronger direct failure signal. Ambiguous cases should use `unknown` and `needs-human-triage`.
+
 ## `evals/metrics.py`
 
 Defines pure metric functions.
@@ -628,12 +630,16 @@ Run with:
 
 ```bash
 python scripts/run_evals.py --provider mock
-python scripts/run_evals.py --provider openai
+EMBEDDING_PROVIDER=openai python scripts/run_evals.py --provider openai
 ```
 
 Why it matters:
 
 This gives a repeatable quality check before changing prompts, retrieval, graph nodes, or mock behavior.
+
+When running OpenAI evals against a Chroma collection ingested with OpenAI embeddings, retrieval must also use `EMBEDDING_PROVIDER=openai`.
+
+OpenAI eval failures are useful policy feedback. If the model over-infers on weak evidence, tighten the prompt or schema rather than accepting unsupported routing.
 
 ## `tests/test_evals.py`
 

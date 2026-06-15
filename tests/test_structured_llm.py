@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from llm.mock_client import MockTriageLLM
+from pydantic import ValidationError
 from llm.schemas import (
     ClassificationOutput,
     DraftCommentOutput,
@@ -74,3 +75,30 @@ def test_confidence_values_are_between_zero_and_one() -> None:
     assert 0.0 <= owner.confidence <= 1.0
     assert 0.0 <= rca.confidence <= 1.0
 
+
+def test_classification_rejects_unsupported_issue_type() -> None:
+    try:
+        ClassificationOutput(
+            issue_type="authentication failure",
+            component="auth",
+            severity="high",
+            confidence=0.9,
+            reasoning_summary="Invalid issue_type should not pass schema validation.",
+        )
+    except ValidationError:
+        return
+
+    raise AssertionError("ClassificationOutput accepted unsupported issue_type")
+
+
+def test_owner_recommendation_rejects_unsupported_owner() -> None:
+    try:
+        OwnerRecommendationOutput(
+            recommended_owner="auth-squad",
+            confidence=0.9,
+            supporting_evidence=["Invalid owner should not pass schema validation."],
+        )
+    except ValidationError:
+        return
+
+    raise AssertionError("OwnerRecommendationOutput accepted unsupported owner")

@@ -392,10 +392,12 @@ The eval runner:
 Use OpenAI intentionally:
 
 ```bash
-python scripts/run_evals.py --provider openai
+EMBEDDING_PROVIDER=openai python scripts/run_evals.py --provider openai
 ```
 
 OpenAI evals spend tokens. Keep `mock` as the default for local regression checks.
+
+If you ingested Chroma with OpenAI embeddings, eval retrieval must also use OpenAI embeddings. A dimension error like `Collection expecting embedding with dimension of 1536, got 384` means Chroma was built with OpenAI vectors but retrieval used hash vectors. Fix it by setting `EMBEDDING_PROVIDER=openai` for the eval run.
 
 ## Reset Local Data
 
