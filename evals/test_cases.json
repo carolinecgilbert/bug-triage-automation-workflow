@@ -1,0 +1,264 @@
+[
+  {
+    "id": "EVAL-001",
+    "ticket_id": "EVAL-001",
+    "title": "Firmware OTA update fails with manifest hash mismatch",
+    "description": "Device fails during OTA package validation. Logs show manifest hash mismatch before install.",
+    "labels": ["bug", "firmware"],
+    "logs": ["ERROR update_package_verification_failed manifest hash mismatch"],
+    "expected_component": "firmware_update",
+    "expected_owner": "firmware-update-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "firmware_update_troubleshooting.md",
+      "issue_002_firmware_hash_mismatch.md",
+      "ota_update_service.md"
+    ]
+  },
+  {
+    "id": "EVAL-002",
+    "ticket_id": "EVAL-002",
+    "title": "Firmware rollout stuck after OTA download",
+    "description": "Beta devices download firmware 4.13.2 but remain on the old version after failed_integrity_check.",
+    "labels": ["ota", "rollout", "device"],
+    "logs": ["WARN ota transition failed_integrity_check downloaded_bytes=18423172"],
+    "expected_component": "firmware_update",
+    "expected_owner": "firmware-update-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "sample_issue_001.md",
+      "firmware_update_troubleshooting.md",
+      "ota_update_service.md"
+    ]
+  },
+  {
+    "id": "EVAL-003",
+    "ticket_id": "EVAL-003",
+    "title": "Login redirects users back to sign-in repeatedly",
+    "description": "After OAuth callback, users are redirected back to /login and cannot establish a session.",
+    "labels": ["bug", "auth"],
+    "logs": ["ERROR auth callback rejected state mismatch session_cookie_missing"],
+    "expected_component": "auth",
+    "expected_owner": "platform-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "auth_troubleshooting.md",
+      "issue_001_auth_redirect_loop.md",
+      "auth_service.md"
+    ]
+  },
+  {
+    "id": "EVAL-004",
+    "ticket_id": "EVAL-004",
+    "title": "Refresh token rejected after session renewal",
+    "description": "Mobile clients receive 401 after token refresh. Logs mention token kid not found and session invalid.",
+    "labels": ["auth", "token", "production"],
+    "logs": ["WARN token_refresh_failed kid_not_found user_session_invalid"],
+    "expected_component": "auth",
+    "expected_owner": "platform-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "auth_refresh_failure.log",
+      "auth_troubleshooting.md",
+      "auth_service.md"
+    ]
+  },
+  {
+    "id": "EVAL-005",
+    "ticket_id": "EVAL-005",
+    "title": "Bluetooth pairing times out during device setup",
+    "description": "New devices advertise over BLE, but the app times out while pairing and never reaches GATT discovery.",
+    "labels": ["bug", "bluetooth", "pairing"],
+    "logs": ["ERROR ble_pairing_timeout after 30000ms gatt_discovery_not_started"],
+    "expected_component": "bluetooth",
+    "expected_owner": "device-connectivity-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "bluetooth_pairing_troubleshooting.md",
+      "issue_003_bluetooth_pairing_timeout.md",
+      "bluetooth_manager.md"
+    ]
+  },
+  {
+    "id": "EVAL-006",
+    "ticket_id": "EVAL-006",
+    "title": "BLE device fails to reconnect after stale bond",
+    "description": "Customers must forget the device before Bluetooth pairing works again. Stale bonding state appears likely.",
+    "labels": ["ble", "device"],
+    "logs": ["WARN bluetooth bond_exists=true pairing_rejected reason=stale_bond"],
+    "expected_component": "bluetooth",
+    "expected_owner": "device-connectivity-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "bluetooth_pairing_troubleshooting.md",
+      "bluetooth_manager.md",
+      "issue_003_bluetooth_pairing_timeout.md"
+    ]
+  },
+  {
+    "id": "EVAL-007",
+    "ticket_id": "EVAL-007",
+    "title": "DNS lookup fails on corporate WiFi",
+    "description": "Network client cannot resolve api gateway hostnames for users behind proxy DNS.",
+    "labels": ["bug", "networking", "dns"],
+    "logs": ["ERROR dns_resolution_failed host=api.example.internal network=corp_wifi"],
+    "expected_component": "networking",
+    "expected_owner": "networking-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "network_connectivity_troubleshooting.md",
+      "issue_004_network_dns_failure.md",
+      "network_client.md"
+    ]
+  },
+  {
+    "id": "EVAL-008",
+    "ticket_id": "EVAL-008",
+    "title": "TLS requests fail after proxy network change",
+    "description": "Clients behind enterprise network proxy fail requests after DNS changes and retry until timeout.",
+    "labels": ["network", "proxy", "tls"],
+    "logs": ["WARN tls_handshake_failed proxy_enabled=true dns_cache_stale=true"],
+    "expected_component": "networking",
+    "expected_owner": "networking-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "network_connectivity_troubleshooting.md",
+      "network_client.md",
+      "issue_004_network_dns_failure.md"
+    ]
+  },
+  {
+    "id": "EVAL-009",
+    "ticket_id": "EVAL-009",
+    "title": "Release promotion fails because manifest is missing",
+    "description": "The release pipeline promoted artifacts but the manifest was not published for the new build.",
+    "labels": ["release", "pipeline", "ci"],
+    "logs": ["ERROR release_manifest_missing build_id=2026.06.14.1 artifact_exists=true"],
+    "expected_component": "release_pipeline",
+    "expected_owner": "build-systems-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "issue_005_release_manifest_missing.md",
+      "release_pipeline.md",
+      "severity_policy.md"
+    ]
+  },
+  {
+    "id": "EVAL-010",
+    "ticket_id": "EVAL-010",
+    "title": "CI build artifact unavailable after promotion",
+    "description": "Pipeline reports success, but release artifact metadata is missing from the promoted channel.",
+    "labels": ["build", "artifact", "release"],
+    "logs": ["ERROR pipeline promotion_completed artifact_metadata_not_found"],
+    "expected_component": "release_pipeline",
+    "expected_owner": "build-systems-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "release_pipeline.md",
+      "issue_005_release_manifest_missing.md",
+      "severity_policy.md"
+    ]
+  },
+  {
+    "id": "EVAL-011",
+    "ticket_id": "EVAL-011",
+    "title": "Production auth outage affects all users",
+    "description": "All users are unable to login after auth deploy. Sessions are rejected and token validation fails.",
+    "labels": ["sev1", "auth", "outage"],
+    "logs": ["ERROR all_users login_failure token_validation_failed"],
+    "expected_component": "auth",
+    "expected_owner": "platform-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "auth_troubleshooting.md",
+      "severity_policy.md",
+      "auth_service.md"
+    ]
+  },
+  {
+    "id": "EVAL-012",
+    "ticket_id": "EVAL-012",
+    "title": "Many users blocked by firmware rollout",
+    "description": "Many users in the rollout cohort cannot update firmware and devices repeatedly retry the same OTA bundle.",
+    "labels": ["sev2", "firmware", "rollout"],
+    "logs": ["WARN many_users ota_retry_loop failed_integrity_check"],
+    "expected_component": "firmware_update",
+    "expected_owner": "firmware-update-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "firmware_update_troubleshooting.md",
+      "severity_policy.md",
+      "ota_update_service.md"
+    ]
+  },
+  {
+    "id": "EVAL-013",
+    "ticket_id": "EVAL-013",
+    "title": "Device setup gets stuck",
+    "description": "The setup screen spins forever after the user taps continue. No clear subsystem is named.",
+    "labels": ["needs-triage"],
+    "logs": ["WARN setup_step_timeout screen=continue"],
+    "expected_component": "unknown",
+    "expected_owner": "needs-human-triage",
+    "expected_issue_type": "unknown",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": []
+  },
+  {
+    "id": "EVAL-014",
+    "ticket_id": "EVAL-014",
+    "title": "Customer reports intermittent failures",
+    "description": "The report says things sometimes fail after a recent change but provides no logs or reproduction steps.",
+    "labels": ["needs-triage"],
+    "logs": [],
+    "expected_component": "unknown",
+    "expected_owner": "needs-human-triage",
+    "expected_issue_type": "unknown",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": []
+  },
+  {
+    "id": "EVAL-015",
+    "ticket_id": "EVAL-015",
+    "title": "App cannot reach service after WiFi reconnect",
+    "description": "After reconnecting WiFi, requests fail until app restart. Network retry and DNS cache behavior are suspicious.",
+    "labels": ["wifi", "network"],
+    "logs": ["ERROR network_request_timeout dns_cache_age_seconds=3600"],
+    "expected_component": "networking",
+    "expected_owner": "networking-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "network_connectivity_troubleshooting.md",
+      "network_client.md"
+    ]
+  },
+  {
+    "id": "EVAL-016",
+    "ticket_id": "EVAL-016",
+    "title": "Pairing and login both fail during onboarding",
+    "description": "During onboarding, Bluetooth pairing occasionally fails and login redirects once before succeeding.",
+    "labels": ["needs-triage", "pairing", "login"],
+    "logs": ["WARN onboarding intermittent pairing timeout; WARN login redirect retry"],
+    "expected_component": "auth",
+    "expected_owner": "platform-team",
+    "expected_issue_type": "bug",
+    "expected_approval_required": true,
+    "expected_retrieved_sources": [
+      "auth_troubleshooting.md",
+      "bluetooth_pairing_troubleshooting.md"
+    ]
+  }
+]

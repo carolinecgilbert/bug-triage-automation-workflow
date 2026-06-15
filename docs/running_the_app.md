@@ -191,6 +191,18 @@ Streamlit/FastAPI contract:
 python scripts/smoke_test_streamlit_api.py --provider mock
 ```
 
+Offline evals:
+
+```bash
+python scripts/run_evals.py --provider mock
+```
+
+If the average retrieval hit rate is `0`, refresh Chroma first:
+
+```bash
+python -m rag.ingest --provider hash
+```
+
 ## Start The API Server
 
 Run:
@@ -361,6 +373,29 @@ python -m pytest tests/test_api.py tests/test_structured_llm.py tests/test_langg
 ```
 
 The API tests use a temporary SQLite database so they do not depend on Docker or mutate your local Postgres data.
+
+## Run Offline Evals
+
+Run:
+
+```bash
+python scripts/run_evals.py --provider mock
+```
+
+The eval runner:
+
+- loads cases from `evals/test_cases.json`
+- runs each issue through the existing LangGraph workflow
+- scores component, owner, issue type, approval routing, retrieval hit rate, and latency
+- writes results to `evals/results/latest_results.json`
+
+Use OpenAI intentionally:
+
+```bash
+python scripts/run_evals.py --provider openai
+```
+
+OpenAI evals spend tokens. Keep `mock` as the default for local regression checks.
 
 ## Reset Local Data
 

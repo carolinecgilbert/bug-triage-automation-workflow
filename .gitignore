@@ -12,3 +12,6 @@ __pycache__/
 # Local vector store
 chroma_db/
 *_chroma_db/
+
+# Generated eval outputs
+evals/results/*.json

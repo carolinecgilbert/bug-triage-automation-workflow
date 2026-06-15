@@ -14,6 +14,8 @@ LangGraph now orchestrates those steps as a lightweight state machine. It prepar
 
 FastAPI exposes that workflow as an HTTP API, and Postgres stores each run. The persisted record includes the input issue, final state, retrieved evidence, latency, approval requirement, status, and any human feedback.
 
+Streamlit provides a demo UI over the API, and the offline eval harness measures the same workflow against labeled cases.
+
 ## How To Explain RAG In This Project
 
 RAG is used to ground the model in project-specific context. Instead of asking an LLM to guess the owner or root cause from a GitHub issue alone, the application retrieves relevant troubleshooting docs, historical issues, code summaries, logs, and ownership metadata. The LLM can then reason over both the user issue and the retrieved evidence.
@@ -81,6 +83,10 @@ I used SQLAlchemy because it keeps database access explicit and testable while s
 
 I used Dockerized Postgres because it gives the MVP a realistic relational database without requiring a cloud account. Since the app reads `DATABASE_URL`, moving from local Docker to AWS RDS or GCP Cloud SQL should primarily be a configuration change, not an application rewrite.
 
+## Why Offline Evals Matter
+
+I added an offline evaluation harness that runs labeled issues through the same LangGraph workflow used by the API. It measures component accuracy, owner recommendation accuracy, issue type accuracy, approval routing correctness, retrieval hit rate, and latency. This gives me a repeatable way to test prompt, retrieval, and workflow changes instead of relying on anecdotal demo quality.
+
 ## Production Evolution
 
 A production version would likely add:
@@ -121,6 +127,12 @@ Now that persistence is in place:
 I added Postgres as the system of record. Chroma remains the retrieval index, but Postgres stores the durable workflow history: issue input, final triage output, retrieved evidence, latency, approval state, and human feedback. That gives the system auditability and creates the foundation for a UI, evals, and continuous improvement.
 ```
 
+Now that evals are in place:
+
+```text
+I added an offline eval harness with labeled issue cases. It runs the same graph used by the API, scores structured outputs and retrieval evidence, and writes results to JSON. That gives me a regression test loop for workflow quality before adding more complex production evals like LLM-as-judge or online feedback metrics.
+```
+
 ## Tradeoffs To Name Clearly
 
 The current system optimizes for learning speed and local development, not final model quality.
@@ -134,6 +146,7 @@ Tradeoffs:
 - fake data is good for development but real issue data will require privacy and access controls
 - `create_all()` is fine for the MVP but production should use Alembic migrations
 - local Docker Postgres is realistic for development but production needs managed backups, access controls, and monitoring
+- offline evals measure structured fields and retrieval hits, but they do not yet judge RCA or comment quality semantically
 
 Being able to name these tradeoffs is a strength. It shows you understand both the MVP and the production path.
 
@@ -153,3 +166,5 @@ Being able to name these tradeoffs is a strength. It shows you understand both t
 - system of record: durable database storing authoritative workflow history
 - audit trail: record of inputs, evidence, outputs, and human decisions
 - migration: controlled database schema change, usually managed with Alembic in Python apps
+- offline eval: repeatable labeled test set used to measure AI workflow quality
+- regression eval: eval run used to catch quality drops after code, prompt, model, or retrieval changes

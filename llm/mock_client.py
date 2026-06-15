@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from llm.base_client import BaseTriageLLM
 from llm.schemas import (
     ClassificationOutput,
@@ -127,10 +129,24 @@ def infer_component_and_owner(text: str) -> tuple[str, str]:
 def infer_component_owner_and_confidence(text: str) -> tuple[str, str, float]:
     """Map issue text to a component, owner, and confidence score."""
     normalized = text.lower()
-    for component, keywords in KEYWORDS_BY_COMPONENT.items():
-        if any(keyword in normalized for keyword in keywords):
-            return component, OWNER_BY_COMPONENT[component], 0.85
+    scores = {
+        component: sum(1 for keyword in keywords if keyword_matches(normalized, keyword))
+        for component, keywords in KEYWORDS_BY_COMPONENT.items()
+    }
+    best_component, best_score = max(scores.items(), key=lambda item: item[1])
+
+    if best_score > 0:
+        return best_component, OWNER_BY_COMPONENT[best_component], 0.85
+
     return "unknown", "needs-human-triage", 0.35
+
+
+def keyword_matches(text: str, keyword: str) -> bool:
+    """Match keyword phrases without letting short tokens match inside words."""
+    normalized_keyword = keyword.lower()
+    if " " in normalized_keyword:
+        return normalized_keyword in text
+    return re.search(rf"\b{re.escape(normalized_keyword)}\b", text) is not None
 
 
 def context_to_text(context: TriageContext, include_retrieved_context: bool = True) -> str:

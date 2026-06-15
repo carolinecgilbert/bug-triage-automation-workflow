@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The project has completed the data foundation, RAG ingestion/retrieval, structured LLM calls, lightweight LangGraph workflow orchestration, a FastAPI wrapper, Postgres-backed persistence, and a Streamlit demo UI.
+The project has completed the data foundation, RAG ingestion/retrieval, structured LLM calls, lightweight LangGraph workflow orchestration, a FastAPI wrapper, Postgres-backed persistence, a Streamlit demo UI, and an offline eval harness.
 
 Completed implementation steps:
 
@@ -15,10 +15,11 @@ Completed implementation steps:
 - Step 7: FastAPI endpoints
 - Step 8: Postgres persistence
 - Step 9: Streamlit UI
+- Step 10: offline evals and metrics
 
 Remaining major steps:
 
-- Step 10: evals and metrics
+- Real GitHub ingestion, production observability, auth, and deployment are intentionally deferred.
 
 ## What Works Today
 
@@ -97,6 +98,13 @@ You can start the Streamlit demo UI:
 streamlit run frontend/streamlit_app.py
 ```
 
+You can run offline evals:
+
+```bash
+python scripts/run_evals.py --provider mock
+python scripts/run_evals.py --provider openai
+```
+
 You can inspect stored runs in Postgres:
 
 ```bash
@@ -137,6 +145,11 @@ fake engineering corpus
   -> Postgres persistence
   -> FastAPI JSON response
   -> Streamlit demo UI
+
+labeled eval cases
+  -> same LangGraph workflow
+  -> metric scorer
+  -> evals/results/latest_results.json
 ```
 
 The important engineering split is:
@@ -147,6 +160,7 @@ The important engineering split is:
 - `src/api/` exposes the workflow through HTTP endpoints.
 - `src/db/` persists workflow runs, retrieved evidence, latency, approval state, and feedback.
 - `frontend/` provides a demo UI that calls FastAPI over HTTP.
+- `evals/` measures workflow quality against labeled examples.
 - `prompts/` defines hosted LLM task instructions.
 - `tests/` protects expected structured behavior.
 - `scripts/` gives a quick manual demo path.
@@ -203,4 +217,16 @@ Step 9 added:
 - Run History page: list persisted triage runs
 - Run Details / Feedback page: inspect a run and submit human feedback
 
-This is a good stopping point before evals because the project now has a visible demo surface and a persisted feedback loop.
+At the end of Step 9, the project had a visible demo surface and a persisted feedback loop. Step 10 then added repeatable offline quality checks.
+
+## What Step 10 Added
+
+Step 10 added:
+
+- `evals/test_cases.json`: labeled offline eval set covering firmware, auth, bluetooth, networking, release pipeline, and ambiguous issues
+- `evals/metrics.py`: pure scoring helpers for component, owner, issue type, approval routing, retrieval hit rate, and latency
+- `evals/runner.py`: runner that executes the existing LangGraph workflow over eval cases
+- `scripts/run_evals.py`: CLI for running evals and writing `evals/results/latest_results.json`
+- `tests/test_evals.py`: focused tests for metric behavior and one mock eval run
+
+This completes the original MVP plan. The project now has a repeatable way to test prompt, retrieval, and workflow changes instead of relying only on demo impressions.

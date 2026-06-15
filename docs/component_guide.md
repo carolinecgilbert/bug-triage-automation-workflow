@@ -571,6 +571,84 @@ python scripts/smoke_test_streamlit_api.py --provider mock
 python scripts/smoke_test_streamlit_api.py --provider openai
 ```
 
+## `evals/test_cases.json`
+
+Defines the labeled offline eval dataset.
+
+Role in the stack:
+
+```text
+labeled issue examples -> expected workflow behavior
+```
+
+Why it matters:
+
+Eval cases turn subjective demo quality into repeatable checks. The current dataset covers firmware, auth, bluetooth, networking, release pipeline, and ambiguous issues.
+
+## `evals/metrics.py`
+
+Defines pure metric functions.
+
+Important functions:
+
+- `score_case()`
+- `summarize_results()`
+- `source_hit_rate()`
+- `safe_get_nested()`
+
+Role in the stack:
+
+```text
+final_state + expected labels -> per-case metrics -> aggregate summary
+```
+
+Why it matters:
+
+Metrics are kept separate from workflow execution, which makes them easy to test and reason about.
+
+## `evals/runner.py`
+
+Runs eval cases through the existing LangGraph workflow.
+
+Role in the stack:
+
+```text
+eval case -> run_triage_workflow() -> score_case() -> result JSON
+```
+
+Why it matters:
+
+The eval runner does not duplicate triage logic. It measures the same workflow used by FastAPI and Streamlit.
+
+## `scripts/run_evals.py`
+
+CLI entrypoint for offline evals.
+
+Run with:
+
+```bash
+python scripts/run_evals.py --provider mock
+python scripts/run_evals.py --provider openai
+```
+
+Why it matters:
+
+This gives a repeatable quality check before changing prompts, retrieval, graph nodes, or mock behavior.
+
+## `tests/test_evals.py`
+
+Automated tests for eval metrics and one mock eval run.
+
+Role in the stack:
+
+```text
+known final states -> metric assertions
+```
+
+Why it matters:
+
+These tests protect the eval harness itself, so future workflow changes are measured by stable scoring code.
+
 ## `tests/test_api.py`
 
 Automated tests for the FastAPI app.

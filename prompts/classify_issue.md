@@ -15,5 +15,5 @@ Return only valid JSON matching this schema. Do not wrap the JSON in Markdown fe
   "reasoning_summary": "str"
 }
 ```
-
-Use known components when supported by evidence: `auth`, `firmware_update`, `bluetooth`, `networking`, `release_pipeline`, or `unknown`.
+issue_type must be one of: bug, unknown
+component must be one of: firmware_update, auth, bluetooth, networking, release_pipeline, unknown. If multiple components appear, select the component with the strongest direct failure signal. If unclear, use unknown.
