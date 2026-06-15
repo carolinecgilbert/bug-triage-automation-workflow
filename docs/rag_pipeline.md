@@ -76,6 +76,15 @@ Optional providers in `rag.embeddings`:
 
 Important rule: ingestion and retrieval must use the same embedding provider and dimensionality. If you ingest with `hash` and query with OpenAI embeddings, the vectors are incompatible.
 
+You can choose the provider from the command line:
+
+```bash
+python -m rag.ingest --provider hash
+python -m rag.ingest --provider openai
+```
+
+The command-line flag follows the same pattern as the rest of the project's provider flags. Use `hash` for free local MVP testing. Use `openai` when you intentionally want hosted embeddings and have `OPENAI_API_KEY` configured.
+
 ## Step 5: Vector Storage
 
 `rag.ingest` stores chunks in Chroma with:
@@ -96,7 +105,13 @@ In production, ingestion would usually become incremental. Instead of deleting t
 Example:
 
 ```bash
-python -m rag.retriever "firmware update hash mismatch on hw-b2"
+python -m rag.retriever "firmware update hash mismatch on hw-b2" --provider hash
+```
+
+If you ingested with OpenAI embeddings, retrieve with OpenAI embeddings:
+
+```bash
+python -m rag.retriever "firmware update hash mismatch on hw-b2" --provider openai
 ```
 
 The retriever prints:

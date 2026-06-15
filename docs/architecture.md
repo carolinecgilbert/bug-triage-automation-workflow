@@ -4,11 +4,13 @@
 
 `bug-triage-automation-workflow` is an Agentic Engineering Operations Assistant. The end-state system will analyze GitHub issues, retrieve relevant repository and operational context, recommend ownership, generate root cause hypotheses, suggest remediation steps, and require human approval before taking action.
 
-The current implementation reaches Step 8: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, FastAPI wrapper, and Postgres persistence are in place.
+The current implementation reaches Step 9: the data foundation, RAG ingestion/retrieval, structured LLM calls, LangGraph orchestration, FastAPI wrapper, Postgres persistence, and Streamlit demo UI are in place.
 
 ## Current MVP Architecture
 
 ```text
+Offline ingestion path:
+
 data/
   docs, historical issues, code summaries, sample issues, logs, ownership
         |
@@ -19,6 +21,15 @@ rag.ingest
         v
 Chroma vector store
   chunk text + metadata + vectors
+
+Runtime application path:
+
+Streamlit frontend
+  submit issue + view runs + submit feedback
+        |
+        v
+src.api
+  /health, /triage, /triage/{run_id}, /feedback
         |
         v
 rag.retriever
@@ -37,10 +48,6 @@ BaseTriageLLM implementation
   MockTriageLLM now, OpenAITriageLLM later
         |
         v
-src.api
-  /health, /triage, /triage/{run_id}, /feedback
-        |
-        v
 Postgres via SQLAlchemy
   triage runs + retrieved sources + human feedback
 ```
@@ -52,7 +59,7 @@ Postgres via SQLAlchemy
 Run:
 
 ```bash
-python -m rag.ingest
+python -m rag.ingest --provider hash
 ```
 
 This reads source data from `data/`, chunks it, generates vectors, and writes a Chroma collection.
@@ -62,7 +69,7 @@ This reads source data from `data/`, chunks it, generates vectors, and writes a 
 Run:
 
 ```bash
-python -m rag.retriever "firmware update hash mismatch on hw-b2"
+python -m rag.retriever "firmware update hash mismatch on hw-b2" --provider hash
 ```
 
 This embeds the query using the same embedding provider, searches Chroma, and prints the top matching chunks.
@@ -136,6 +143,24 @@ POST /feedback
 
 `POST /triage` accepts a ticket ID, title, description, provider, and approval preference. It calls the existing LangGraph workflow and returns the final state as JSON.
 
+### Streamlit Path
+
+Start the demo UI:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+The Streamlit app calls FastAPI over HTTP using `API_BASE_URL`. It does not import LangGraph, RAG, LLM, or database modules directly.
+
+Pages:
+
+- Submit Issue
+- Run History
+- Run Details / Feedback
+
+This keeps the frontend as a replaceable client layer. A future React app, Slack bot, or internal portal could use the same FastAPI endpoints.
+
 ### Persistence Path
 
 Run local Postgres:
@@ -190,6 +215,8 @@ human_feedback    reviewer feedback attached to a run
 
 `src/db/` owns relational persistence. It stores runs, retrieved evidence, and human feedback using SQLAlchemy.
 
+`frontend/` owns the demo UI. It is intentionally a thin HTTP client over FastAPI.
+
 `docs/` explains how the system works and how to discuss the architecture.
 
 ## Why This Design Matters
@@ -199,3 +226,5 @@ The system separates retrieval from reasoning. Retrieval finds relevant evidence
 The system also separates orchestration from model calls. LangGraph coordinates state transitions, while `TriageService` owns model-facing business logic. This keeps the graph explicit without turning the project into a complex multi-agent system.
 
 The system separates retrieval storage from application storage. Chroma stores vectorized chunks optimized for similarity search. Postgres stores durable workflow records optimized for querying, audit, feedback, and future product surfaces.
+
+The system separates frontend UX from backend workflow execution. Streamlit demonstrates the product experience, while FastAPI remains the stable service boundary for running triage and storing feedback.

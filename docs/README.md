@@ -1,6 +1,6 @@
 # Bug Triage Automation Workflow Docs
 
-This directory explains the project as it exists after Step 8: RAG ingestion, retrieval, structured LLM calls, LangGraph orchestration, FastAPI, and Postgres persistence.
+This directory explains the project as it exists after Step 9: RAG ingestion, retrieval, structured LLM calls, LangGraph orchestration, FastAPI, Postgres persistence, and Streamlit UI.
 
 ## Reading Order
 
@@ -31,11 +31,11 @@ The project currently supports:
 - LangGraph workflow orchestration with an approval gate
 - FastAPI endpoints for health checks, triage, run lookup, run listing, and feedback
 - Postgres persistence through SQLAlchemy
-- Smoke scripts and pytest coverage for structured LLM, LangGraph, FastAPI, and persistence paths
+- Streamlit demo UI over the FastAPI API
+- Smoke scripts and pytest coverage for structured LLM, LangGraph, FastAPI, persistence, and frontend API contract paths
 - A local runbook for starting Postgres, exercising the API, and inspecting persisted tables
 
 The project does not yet include:
 
 - GitHub API ingestion
-- Frontend UI
 - Automated GitHub comments, labels, or assignments

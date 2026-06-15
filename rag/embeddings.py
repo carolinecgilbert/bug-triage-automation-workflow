@@ -115,7 +115,7 @@ class OpenAIEmbeddingClient:
         return response.data[0].embedding
 
 
-def create_embedding_client() -> EmbeddingClient:
+def create_embedding_client(provider: str | None = None) -> EmbeddingClient:
     """Create the configured embedding client.
 
     EMBEDDING_PROVIDER defaults to hash so MVP development does not require
@@ -123,7 +123,7 @@ def create_embedding_client() -> EmbeddingClient:
     hosted embeddings, or sentence-transformers when your local ML stack is
     ready.
     """
-    provider = os.getenv("EMBEDDING_PROVIDER", "hash").strip().lower()
+    provider = (provider or os.getenv("EMBEDDING_PROVIDER", "hash")).strip().lower()
 
     if provider == "hash":
         dimensions = int(os.getenv("HASH_EMBEDDING_DIMENSIONS", str(DEFAULT_HASH_DIMENSIONS)))

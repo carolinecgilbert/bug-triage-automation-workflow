@@ -17,7 +17,8 @@ Postgres
 The runtime flow is:
 
 ```text
-POST /triage
+Streamlit
+  -> POST /triage
   -> FastAPI validates the request
   -> LangGraph runs the triage workflow
   -> RAG retrieves context from Chroma
@@ -48,11 +49,47 @@ OPENAI_API_KEY=your-key
 LLM_PROVIDER=openai
 ```
 
+For OpenAI embeddings, use:
+
+```env
+OPENAI_API_KEY=your-key
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
 For normal local testing, keep:
 
 ```env
 LLM_PROVIDER=mock
 EMBEDDING_PROVIDER=hash
+API_BASE_URL=http://127.0.0.1:8000
+```
+
+## Full Local Demo Sequence
+
+Use this sequence when you want to run the complete MVP:
+
+```bash
+docker compose up -d
+python -m rag.ingest --provider hash
+uvicorn src.api.main:app --reload
+```
+
+Then open a second terminal and run:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+FastAPI docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Streamlit app:
+
+```text
+http://localhost:8501
 ```
 
 ## Start Postgres
@@ -90,10 +127,23 @@ db ok
 Run ingestion before testing retrieval-heavy flows:
 
 ```bash
-python -m rag.ingest
+python -m rag.ingest --provider hash
 ```
 
 This loads files under `data/`, chunks them, embeds the chunks, and writes them into Chroma.
+
+To intentionally use OpenAI embeddings instead:
+
+```bash
+python -m rag.ingest --provider openai
+```
+
+Retrieval must use the same provider used for ingestion:
+
+```bash
+python -m rag.retriever "firmware update hash mismatch" --provider hash
+python -m rag.retriever "firmware update hash mismatch" --provider openai
+```
 
 ## Run Smoke Tests
 
@@ -135,12 +185,24 @@ GET /triage/{run_id}
 POST /feedback
 ```
 
+Streamlit/FastAPI contract:
+
+```bash
+python scripts/smoke_test_streamlit_api.py --provider mock
+```
+
 ## Start The API Server
 
 Run:
 
 ```bash
 uvicorn src.api.main:app --reload
+```
+
+FastAPI docs are available at:
+
+```text
+http://127.0.0.1:8000/docs
 ```
 
 Health check:
@@ -197,6 +259,34 @@ Fetch the same run again to confirm feedback was attached:
 ```bash
 curl http://127.0.0.1:8000/triage/YOUR_RUN_ID_HERE
 ```
+
+## Start The Streamlit UI
+
+With FastAPI still running, start Streamlit in another terminal:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+The Streamlit app is usually available at:
+
+```text
+http://localhost:8501
+```
+
+Use the sidebar pages:
+
+- Submit Issue: create a triage run and view the result
+- Run History: list persisted runs from Postgres through FastAPI
+- Run Details / Feedback: inspect a run and submit review feedback
+
+The Streamlit app uses:
+
+```env
+API_BASE_URL=http://127.0.0.1:8000
+```
+
+It only calls FastAPI over HTTP. It does not call LangGraph or SQLAlchemy directly.
 
 ## Inspect Postgres
 
@@ -300,3 +390,11 @@ After a successful run, you should see:
 - `final_state_json` containing classification, owner recommendation, RCA, draft comment, approval state, and retrieved context
 
 That proves the MVP can run the AI workflow and preserve an auditable record of what happened.
+
+After a successful Streamlit demo, you should also be able to:
+
+- submit a new issue through the UI
+- see the triage result immediately
+- select a persisted run from history
+- view retrieved sources and raw final state
+- submit feedback and confirm it appears on the run detail page

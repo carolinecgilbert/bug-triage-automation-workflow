@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The project has completed the data foundation, RAG ingestion/retrieval, structured LLM calls, lightweight LangGraph workflow orchestration, a FastAPI wrapper, and Postgres-backed persistence for triage runs and feedback.
+The project has completed the data foundation, RAG ingestion/retrieval, structured LLM calls, lightweight LangGraph workflow orchestration, a FastAPI wrapper, Postgres-backed persistence, and a Streamlit demo UI.
 
 Completed implementation steps:
 
@@ -14,10 +14,10 @@ Completed implementation steps:
 - Step 6: LangGraph workflow orchestration
 - Step 7: FastAPI endpoints
 - Step 8: Postgres persistence
+- Step 9: Streamlit UI
 
 Remaining major steps:
 
-- Step 9: Streamlit UI
 - Step 10: evals and metrics
 
 ## What Works Today
@@ -25,13 +25,15 @@ Remaining major steps:
 You can ingest local project knowledge:
 
 ```bash
-python -m rag.ingest
+python -m rag.ingest --provider hash
+python -m rag.ingest --provider openai
 ```
 
 You can retrieve relevant chunks:
 
 ```bash
-python -m rag.retriever "firmware update hash mismatch on hw-b2"
+python -m rag.retriever "firmware update hash mismatch on hw-b2" --provider hash
+python -m rag.retriever "firmware update hash mismatch on hw-b2" --provider openai
 ```
 
 You can run the structured LLM sequence with either mock or OpenAI:
@@ -82,6 +84,19 @@ python scripts/smoke_test_persistence.py --provider mock
 python scripts/smoke_test_persistence.py --provider openai
 ```
 
+You can run the Streamlit/FastAPI contract smoke test after starting FastAPI:
+
+```bash
+python scripts/smoke_test_streamlit_api.py --provider mock
+python scripts/smoke_test_streamlit_api.py --provider openai
+```
+
+You can start the Streamlit demo UI:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
 You can inspect stored runs in Postgres:
 
 ```bash
@@ -121,6 +136,7 @@ fake engineering corpus
   -> approval gate
   -> Postgres persistence
   -> FastAPI JSON response
+  -> Streamlit demo UI
 ```
 
 The important engineering split is:
@@ -130,6 +146,7 @@ The important engineering split is:
 - `llm/` turns issue context and evidence into structured recommendations.
 - `src/api/` exposes the workflow through HTTP endpoints.
 - `src/db/` persists workflow runs, retrieved evidence, latency, approval state, and feedback.
+- `frontend/` provides a demo UI that calls FastAPI over HTTP.
 - `prompts/` defines hosted LLM task instructions.
 - `tests/` protects expected structured behavior.
 - `scripts/` gives a quick manual demo path.
@@ -171,6 +188,19 @@ Step 8 added:
 - `POST /feedback`: store human review feedback for a run
 - `scripts/smoke_test_persistence.py`: manual persistence smoke test
 
-This is a good stopping point before Streamlit because the API now has a system of record. A UI can list past triage runs, inspect retrieved evidence, and submit approval feedback without changing the workflow logic.
+At the end of Step 8, the API had a system of record. That made Step 9 straightforward because a UI could list past triage runs, inspect retrieved evidence, and submit approval feedback without changing the workflow logic.
 
 For hands-on operation, see [Running The App](running_the_app.md).
+
+## What Step 9 Added
+
+Step 9 added:
+
+- `frontend/streamlit_app.py`: customer-facing demo UI over the FastAPI API
+- `API_BASE_URL`: configurable FastAPI base URL for the frontend
+- `scripts/smoke_test_streamlit_api.py`: HTTP contract smoke test for the endpoints used by Streamlit
+- Submit Issue page: create a new triage run and view the result
+- Run History page: list persisted triage runs
+- Run Details / Feedback page: inspect a run and submit human feedback
+
+This is a good stopping point before evals because the project now has a visible demo surface and a persisted feedback loop.
